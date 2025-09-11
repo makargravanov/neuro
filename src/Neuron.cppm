@@ -2,12 +2,14 @@ export module Neuron;
 
 import std;
 import types;
+export import ActivationPolicies;
 
 export using Input = std::vector<f32>;
 export using Output = Input;
 export using Weights = std::vector<f32>;
 
-export class Neuron {
+export template<typename ActivationPolicy>
+class Neuron {
     Weights _weights{}; // по одному весу на каждый вход
     f32 _bias = 0;
     f32 _output = 0;
@@ -32,12 +34,12 @@ public:
         }
         sum += _bias;
 
-        _output = 1.0 / (1.0 + std::exp(-sum));
+        _output = ActivationPolicy::activate(sum);
         return _output;
     }
 
     f32 activationDerivative() const {
-        return _output * (1.0f - _output);
+        return ActivationPolicy::derivative(_output);
     }
 
     const std::vector<f32>& getWeights() const { return _weights; }

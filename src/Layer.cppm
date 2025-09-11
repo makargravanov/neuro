@@ -5,9 +5,9 @@ import std;
 import types;
 
 export import constants;
-
-export class Layer {
-    std::vector<Neuron> _neurons;
+export template<typename ActivationPolicy>
+class Layer {
+    std::vector<Neuron<ActivationPolicy>> _neurons;
 public:
 
     Layer() = default;
@@ -24,12 +24,12 @@ public:
                 weight = dis(gen);
             }
             f32 initialBias = dis(gen);
-            _neurons.at(i) = Neuron(initialWeights, initialBias);
+            _neurons.at(i) = Neuron<ActivationPolicy>(initialWeights, initialBias);
         }
     };
 
-    std::vector<Neuron>& getNeurons() { return _neurons; }
-    const std::vector<Neuron>& getNeurons() const { return _neurons; }
+    std::vector<Neuron<ActivationPolicy>>& getNeurons() { return _neurons; }
+    const std::vector<Neuron<ActivationPolicy>>& getNeurons() const { return _neurons; }
 
     Output activate(const Input& input) {
         Output output;

@@ -42,4 +42,6 @@ export {
     static_assert(sizeof(u64) == 8, "Invalid u64 size");
     static_assert(sizeof(f32) == 4, "Invalid f32 size");
     static_assert(sizeof(f64) == 8, "Invalid f64 size");
+
+    template class std::vector<f32>;
 }

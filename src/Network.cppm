@@ -20,18 +20,6 @@ public:
         }
     }
 
-    explicit Network(const std::vector<std::vector<Weights>>& layersWeights) {
-        if(layersWeights.size() > 0) {
-            _layers.resize(layersWeights.size());
-            for (u32 i = 0; i < layersWeights.size(); i++) {
-                _layers.at(i) = Layer(std::vector(layersWeights.at(i)));
-            }
-        } else {
-            throw std::invalid_argument("Layers size must be greater than 0");
-        }
-    }
-
-
     Output run(const Input& input){
         if (_layers.empty()) {
             throw std::invalid_argument("No layers provided");

@@ -12,13 +12,6 @@ public:
 
     Layer() = default;
 
-    explicit Layer(const std::vector<Weights>& weights) {
-        _neurons.resize(weights.size());
-        for (u32 i = 0; i < weights.size(); i++) {
-            _neurons.at(i) = Neuron(weights.at(i),-1.5);
-        }
-    };
-
     explicit Layer(const i32 numberOfNeurons, i32 lastNumberOfNeurons) {
         std::random_device rd;
         std::mt19937 gen(rd());
@@ -28,10 +21,8 @@ public:
         for (u32 i = 0; i < numberOfNeurons; i++) {
             Weights initialWeights(lastNumberOfNeurons);
             for(f32& weight : initialWeights) {
-                weight = dis(gen); // Присваиваем случайный вес
+                weight = dis(gen);
             }
-            // Смещение (bias) тоже можно инициализировать случайно,
-            // или оставить 0, или небольшое значение.
             f32 initialBias = dis(gen);
             _neurons.at(i) = Neuron(initialWeights, initialBias);
         }

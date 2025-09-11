@@ -26,7 +26,7 @@ export class Model {
 public:
     Model() = default;
 
-    void loadDataFromCsv(const std::string& filepath, const std::vector<u32>& featureColumns, u32 targetColumn, bool hasHeader = true) {
+    Model& loadDataFromCsv(const std::string& filepath, const std::vector<u32>& featureColumns, u32 targetColumn, bool hasHeader = true) {
         std::println("--- 1. Loading data from {} ---", filepath);
         Parser parser(filepath, featureColumns, targetColumn, hasHeader);
 
@@ -46,10 +46,12 @@ public:
         std::println("Dataset loaded: {} samples.", originalInputs.size());
         std::println("Input size: {}. Output size: {}.", inputSize, outputSize);
         std::println("Task type: {}.\n", isClassification ? "Classification" : "Regression");
+
+        return *this;
     }
 
     // включение нормализации - опция
-    void enableNormalization(bool enabled) {
+    Model& enableNormalization(bool enabled) {
         normalizationEnabled = enabled;
         if (normalizationEnabled) {
             std::println("--- 2. Normalization enabled ---");
@@ -65,20 +67,23 @@ public:
             }
              std::println("Normalizers fitted to data.\n");
         }
+        return *this;
     }
 
     // конфигурация архитектуры сети
-    void configureNetwork(const std::vector<std::pair<u32, PolicyType>>& layersConfig) {
+    Model& configureNetwork(const std::vector<std::pair<u32, PolicyType>>& layersConfig) {
         if (inputSize == 0) {
             throw std::runtime_error("Data must be loaded before configuring the network.");
         }
         std::println("--- 3. Configuring network architecture ---");
         network = std::make_unique<Network>(inputSize, layersConfig);
         std::println("Network created successfully.\n");
+
+        return *this;
     }
 
     // обучение
-    void train(u32 epochs, f32 learningRate) {
+    Model& train(u32 epochs, f32 learningRate) {
         if (!network) {
             throw std::runtime_error("Network must be configured before training.");
         }
@@ -101,6 +106,8 @@ public:
 
         network->train(trainingInputs, trainingOutputs, epochs, learningRate);
         std::println("Training complete.\n");
+
+        return *this;
     }
 
     //предсказание на новых данных
@@ -128,7 +135,7 @@ public:
     }
 
     // оценка качества на исходном датасете
-    void evaluate() {
+    Model& evaluate() {
         std::println("--- 5. Evaluating model performance ---");
         if (isClassification) {
             u32 correctPredictions = 0;
@@ -165,5 +172,7 @@ public:
             std::println("Mean Absolute Percentage Error (MAPE): {:.2f}%", meanPercentageError);
         }
         std::println("");
+
+        return *this;
     }
 };

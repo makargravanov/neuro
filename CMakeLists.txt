@@ -6,7 +6,7 @@ set(CMAKE_CXX_MODULE_STD 1)
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_EXTENSIONS ON)
 
-project(lesson1 LANGUAGES CXX)
+project(neuro LANGUAGES CXX)
 
 add_compile_options(-fmodules-ts)
 

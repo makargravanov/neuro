@@ -8,7 +8,6 @@ import types;
 import std;
 
 export class Model {
-    // --- Приватные поля ---
     std::unique_ptr<Network> network = nullptr;
     std::vector<Input> trainingInputs{};
     std::vector<Output> trainingOutputs{};
@@ -26,7 +25,7 @@ export class Model {
 public:
     Model() = default;
 
-    Model& loadDataFromCsv(const std::string& filepath, const std::vector<u32>& featureColumns, u32 targetColumn, bool hasHeader = true) {
+    Model& fromCSV(const std::string& filepath, const std::vector<u32>& featureColumns, u32 targetColumn, bool hasHeader = true) {
         std::println("--- 1. Loading data from {} ---", filepath);
         Parser parser(filepath, featureColumns, targetColumn, hasHeader);
 
@@ -51,7 +50,7 @@ public:
     }
 
     // включение нормализации - опция
-    Model& enableNormalization(bool enabled) {
+    Model& normalize(bool enabled) {
         normalizationEnabled = enabled;
         if (normalizationEnabled) {
             std::println("--- 2. Normalization enabled ---");
@@ -71,7 +70,7 @@ public:
     }
 
     // конфигурация архитектуры сети
-    Model& configureNetwork(const std::vector<std::pair<u32, PolicyType>>& layersConfig) {
+    Model& withNetwork(const std::vector<std::pair<u32, PolicyType>>& layersConfig) {
         if (inputSize == 0) {
             throw std::runtime_error("Data must be loaded before configuring the network.");
         }

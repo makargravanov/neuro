@@ -32,25 +32,21 @@ void xorExample() {
 
 void irisExample() {
     try {
-        Model irisClassifier;
+        Model iris;
 
-        // Шаги 1-3: Загрузка и конфигурация
-        irisClassifier.loadDataFromCsv("iris.csv", {0, 1, 2, 3}, 4);
-        irisClassifier.configureNetwork({
+        iris.fromCSV("iris.csv", {0, 1, 2, 3}, 4);
+        iris.withNetwork({
             {8, PolicyType::RELU},
             {3, PolicyType::SIGMOID} // Выходной слой на 3 нейрона определился автоматически
         });
 
-        // Шаг 4: Обучение
-        irisClassifier.train(500, 0.1f);
+        iris.train(500, 0.1f);
 
-        // Шаг 5: Оценка
-        irisClassifier.evaluate();
+        iris.evaluate();
 
-        // Шаг 6: Пример предсказания
         std::println("--- Prediction Example ---");
-        Input sample = {5.1, 3.5, 1.4, 0.2}; // Пример ириса сетоза
-        Output prediction = irisClassifier.predict(sample);
+        Input sample = {5.1, 3.5, 1.4, 0.2}; // пример ириса сетоза
+        Output prediction = iris.predict(sample);
 
         std::print("Input: ");
         printVector(sample);
@@ -65,30 +61,20 @@ void irisExample() {
 
 void bjuExample() {
     try {
-        Model calorieRegressor;
+        Model regressor;
 
-        // Шаг 1: Загрузка
-        calorieRegressor.loadDataFromCsv("bju_calories_regression_with_names.csv", {1, 2, 3}, 4);
-        // Шаг 2: Включение нормализации
-        calorieRegressor.enableNormalization(true);
-        // Шаг 3: Конфигурация сети
-        calorieRegressor.configureNetwork({
-           {1, PolicyType::LINEAR}
-        });
+        regressor.fromCSV("bju_calories_regression_with_names.csv", {1, 2, 3}, 4)
+            .normalize(true)
+            .withNetwork({
+                {1, PolicyType::LINEAR}
+            })
+            .train(5000, 0.01f)
+            .evaluate();
 
-        // Шаг 4: Обучение
-        calorieRegressor.train(5000, 0.01f);
-        // Шаг 5: Оценка
-        calorieRegressor.evaluate();
+        Input newProduct = {233, 1212, 332};
+        std::print("Predicting for B/J/U: ");printVector(newProduct);
+        std::println(" -> Predicted kcal: {:.1f}", regressor.predict(newProduct)[0]);
 
-        // Шаг 6: Пример предсказания
-        std::println("--- Prediction Example ---");
-        Input newProduct = {233, 1212, 332}; // 10г белка, 20г жира, 5г углеводов
-        Output prediction = calorieRegressor.predict(newProduct);
-
-        std::print("Predicting for B/J/U: ");
-        printVector(newProduct);
-        std::println(" -> Predicted kcal: {:.1f}", prediction[0]);
     } catch (const std::exception& e) {
         std::println("An error occurred: {}", e.what());
     }

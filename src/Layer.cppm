@@ -22,7 +22,7 @@ public:
     explicit Layer(const i32 numberOfNeurons, i32 lastNumberOfNeurons) {
         std::random_device rd;
         std::mt19937 gen(rd());
-        std::uniform_real_distribution<f32> dis(-0.5f, 0.5f);
+        std::uniform_real_distribution dis(-0.5f, 0.5f);
 
         _neurons.resize(numberOfNeurons);
         for (u32 i = 0; i < numberOfNeurons; i++) {

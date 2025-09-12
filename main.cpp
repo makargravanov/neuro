@@ -37,7 +37,7 @@ void irisExample() {
         iris.fromCSV("iris.csv", {0, 1, 2, 3}, 4);
         iris.withNetwork({
             {8, PolicyType::RELU},
-            {3, PolicyType::SIGMOID} // Выходной слой на 3 нейрона определился автоматически
+            {3, PolicyType::SIGMOID}
         });
 
         iris.train(500, 0.1f);
@@ -71,7 +71,7 @@ void bjuExample() {
             .train(5000, 0.01f)
             .evaluate();
 
-        Input newProduct = {233, 1212, 332};
+        Input newProduct = {2323442, 1000, 1342340};
         std::print("Predicting for B/J/U: ");printVector(newProduct);
         std::println(" -> Predicted kcal: {:.1f}", regressor.predict(newProduct)[0]);
 
@@ -80,8 +80,45 @@ void bjuExample() {
     }
 }
 
+void placementExample() {
+    try {
+        Model classifier;
+
+        classifier.fromCSV("Placement.csv", {1, 2}, 3) // features: CGPA(1), Internships(2); target: Placed(3)
+            .normalize(true) // Нормализация признаков очень рекомендуется
+            .withNetwork({
+                {20, PolicyType::RELU},
+                {10, PolicyType::RELU},
+                {2, PolicyType::SIGMOID} // Выходной слой из 2 нейронов (по числу классов)
+            })
+            .train(10000, 0.001f) // Эпох может потребоваться больше для обучения классификации
+            .evaluate();
+
+        // Предсказание для нового студента
+        Input newStudent1 = {8.5, 2}; // Высокий CGPA, 2 стажировки
+        Input newStudent2 = {6.0, 0}; // Низкий CGPA, 0 стажировок
+
+        Output result1 = classifier.predict(newStudent1);
+        Output result2 = classifier.predict(newStudent2);
+
+        // Интерпретация: находим индекс элемента с максимальной вероятностью
+        auto predictedClass1 = std::distance(result1.begin(), std::ranges::max_element(result1));
+        auto predictedClass2 = std::distance(result2.begin(), std::ranges::max_element(result2));
+
+        std::println("Student 1 prediction: {} (probabilities: {:.2f}%, {:.2f}%)",
+                     predictedClass1 == 0 ? "Yes" : "No", result1[0]*100, result1[1]*100);
+        std::println("Student 2 prediction: {} (probabilities: {:.2f}%, {:.2f}%)",
+                     predictedClass2 == 0 ? "Yes" : "No", result2[0]*100, result2[1]*100);
+
+    } catch (const std::exception& e) {
+        std::println("An error occurred: {}", e.what());
+    }
+}
+
 i32 main() {
-    std::println("--- Running BJU Regression Example ---");
-    bjuExample();
+    //std::println("--- Running BJU Regression Example ---");
+    //bjuExample();
+
+    placementExample();
     return 0;
 }

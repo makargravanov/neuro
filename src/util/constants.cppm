@@ -1,3 +1,3 @@
 export module constants;
 
-export bool LOG_STATUS = false;
+export bool LOG_STATUS = true;

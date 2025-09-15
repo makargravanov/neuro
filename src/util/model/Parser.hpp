@@ -7,7 +7,7 @@
 #include <vector>
 #include <sstream>
 
-#include "../util/eigen_types.hpp"
+#include "../types/eigen_types.hpp"
 
 class Parser {
     std::vector<Input> _inputs;

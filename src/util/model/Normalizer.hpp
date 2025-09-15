@@ -2,8 +2,8 @@
 #ifndef NORMALIZER_HPP
 #define NORMALIZER_HPP
 
-#include "types.hpp"
-#include "eigen_types.hpp"
+#include "../types/types.hpp"
+#include "../types/eigen_types.hpp"
 #include <vector>
 #include <limits>
 

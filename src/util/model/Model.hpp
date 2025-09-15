@@ -6,8 +6,8 @@
 #include <ranges>
 
 #include "model-parts/Network.hpp"
-#include "model-parts/Parser.hpp"
-#include "util/Normalizer.hpp"
+#include "Parser.hpp"
+#include "Normalizer.hpp"
 
 class Model {
     std::unique_ptr<Network> network = nullptr;

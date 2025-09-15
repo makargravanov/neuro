@@ -2,7 +2,7 @@
 #ifndef LAYER_HPP
 #define LAYER_HPP
 
-#include "../util/eigen_types.hpp"
+#include "../../types/eigen_types.hpp"
 
 template<typename ActivationPolicy>
 class Layer {

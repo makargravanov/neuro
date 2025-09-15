@@ -4,7 +4,7 @@
 
 #ifndef STARTER_H
 #define STARTER_H
-#include "../util/types.hpp"
+#include "../util/types/types.hpp"
 
 #include "internal/RestServer.h"
 

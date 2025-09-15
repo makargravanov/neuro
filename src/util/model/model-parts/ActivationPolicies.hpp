@@ -4,7 +4,7 @@
 
 #include <cmath>
 
-#include "../util/types.hpp"
+#include "../../types/eigen_types.hpp"
 
 enum class PolicyType {
     SIGMOID,

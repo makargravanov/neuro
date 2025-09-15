@@ -26,7 +26,13 @@ FetchContent_Declare(
         GIT_TAG        3.4.0
 )
 
-FetchContent_MakeAvailable(boost eigen)
+FetchContent_Declare(
+        nlohmann-json
+        GIT_REPOSITORY https://github.com/nlohmann/json.git
+        GIT_TAG        v3.12.0
+)
+
+FetchContent_MakeAvailable(boost eigen nlohmann-json)
 
 add_compile_options(-fmodules-ts)
 
@@ -56,6 +62,7 @@ target_link_libraries(main PRIVATE
         Boost::asio
         Boost::beast
         eigen
+        nlohmann-json
 )
 
 if(WIN32)

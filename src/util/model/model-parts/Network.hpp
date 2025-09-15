@@ -7,8 +7,8 @@
 
 #include "ActivationPolicies.hpp"
 #include "Layer.hpp"
-#include "../util/eigen_types.hpp"
-#include "../util/constants.hpp"
+#include "../../types/eigen_types.hpp"
+#include "../../constants.hpp"
 
 using AnyLayer = std::variant<
     Layer<SigmoidPolicy>,

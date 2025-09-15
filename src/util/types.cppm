@@ -6,6 +6,8 @@ export module types;
 
 import std;
 
+#include <Eigen/src/Core/Matrix.h>
+
 export {
     using i8 = std::int8_t;
     using i16 = std::int16_t;
@@ -44,4 +46,17 @@ export {
     static_assert(sizeof(f64) == 8, "Invalid f64 size");
 
     template class std::vector<f32>;
+
+    // Вектор-столбец (стандартный для Eigen)
+    using Vector = Eigen::VectorXf;
+    // Матрица с динамическим размером
+    using Matrix = Eigen::MatrixXf;
+    // Вектор-строка
+    using RowVector = Eigen::RowVectorXf;
+
+    // Псевдонимы для входных и выходных данных сети
+    using Input = Vector;
+    using Output = Vector;
+    // Тип для хранения набора данных
+    using DataSet = std::vector<Vector>;
 }

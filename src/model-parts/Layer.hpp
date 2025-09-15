@@ -1,18 +1,19 @@
-export module Layer;
 
-export import Neuron;
-import std;
-import types;
+#ifndef LAYER_HPP
+#define LAYER_HPP
 
-export import constants;
-export template<typename ActivationPolicy>
+#include <random>
+#include "Neuron.hpp"
+
+
+template<typename ActivationPolicy>
 class Layer {
     std::vector<Neuron<ActivationPolicy>> _neurons;
 public:
 
     Layer() = default;
 
-    explicit Layer(const i32 numberOfNeurons, i32 lastNumberOfNeurons) {
+    explicit Layer(const u32 numberOfNeurons, u32 lastNumberOfNeurons) {
         std::random_device rd;
         std::mt19937 gen(rd());
         std::uniform_real_distribution dis(-0.5f, 0.5f);
@@ -41,3 +42,5 @@ public:
         return output;
     }
 };
+
+#endif

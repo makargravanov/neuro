@@ -1,13 +1,14 @@
-export module Model;
+#ifndef MODEL_HPP
+#define MODEL_HPP
 
-import Network;
-import Parser;
-import Normalizer;
-import Neuron;
-import types;
-import std;
+#include <iostream>
+#include <memory>
 
-export class Model {
+#include "model-parts/Network.hpp"
+#include "model-parts/Parser.hpp"
+#include "util/Normalizer.hpp"
+
+class Model {
     std::unique_ptr<Network> network = nullptr;
     std::vector<Input> trainingInputs{};
     std::vector<Output> trainingOutputs{};
@@ -26,7 +27,7 @@ public:
     Model() = default;
 
     Model& fromCSV(const std::string& filepath, const std::vector<u32>& featureColumns, u32 targetColumn, bool hasHeader = true) {
-        std::println("--- 1. Loading data from {} ---", filepath);
+        std::println(std::cout,"--- 1. Loading data from {} ---", filepath);
         Parser parser(filepath, featureColumns, targetColumn, hasHeader);
 
         // оригинальные копии данных
@@ -42,9 +43,9 @@ public:
         // определяем тип задачи: если выходной вектор больше 1, это классификация (one-hot)
         isClassification = outputSize > 1;
 
-        std::println("Dataset loaded: {} samples.", originalInputs.size());
-        std::println("Input size: {}. Output size: {}.", inputSize, outputSize);
-        std::println("Task type: {}.\n", isClassification ? "Classification" : "Regression");
+        std::println(std::cout, "Dataset loaded: {} samples.", originalInputs.size());
+        std::println(std::cout, "Input size: {}. Output size: {}.", inputSize, outputSize);
+        std::println(std::cout, "Task type: {}.\n", isClassification ? "Classification" : "Regression");
 
         return *this;
     }
@@ -53,7 +54,7 @@ public:
     Model& normalize(bool enabled) {
         normalizationEnabled = enabled;
         if (normalizationEnabled) {
-            std::println("--- 2. Normalization enabled ---");
+            std::println(std::cout,"--- 2. Normalization enabled ---");
             // Подготовка нормализаторов
             inputNormalizers.resize(inputSize);
             for (u32 i = 0; i < inputSize; ++i) {
@@ -64,7 +65,7 @@ public:
                 outputNormalizer.emplace();
                 outputNormalizer->fit(originalOutputs, 0);
             }
-             std::println("Normalizers fitted to data.\n");
+             std::println(std::cout,"Normalizers fitted to data.\n");
         }
         return *this;
     }
@@ -74,9 +75,9 @@ public:
         if (inputSize == 0) {
             throw std::runtime_error("Data must be loaded before configuring the network.");
         }
-        std::println("--- 3. Configuring network architecture ---");
+        std::println(std::cout,"--- 3. Configuring network architecture ---");
         network = std::make_unique<Network>(inputSize, layersConfig);
-        std::println("Network created successfully.\n");
+        std::println(std::cout,"Network created successfully.\n");
 
         return *this;
     }
@@ -86,11 +87,11 @@ public:
         if (!network) {
             throw std::runtime_error("Network must be configured before training.");
         }
-        std::println("--- 4. Starting training ---");
+        std::println(std::cout,"--- 4. Starting training ---");
         
         // нормализуем
         if (normalizationEnabled) {
-            std::println("Applying normalization to training data...");
+            std::println(std::cout,"Applying normalization to training data...");
             for (auto& row : trainingInputs) {
                 for (u32 i = 0; i < row.size(); ++i) {
                     row[i] = inputNormalizers[i].transform(row[i]);
@@ -104,7 +105,7 @@ public:
         }
 
         network->train(trainingInputs, trainingOutputs, epochs, learningRate);
-        std::println("Training complete.\n");
+        std::println(std::cout,"Training complete.\n");
 
         return *this;
     }
@@ -135,7 +136,7 @@ public:
 
     // оценка качества на исходном датасете
     Model& evaluate() {
-        std::println("--- 5. Evaluating model performance ---");
+        std::println(std::cout,"--- 5. Evaluating model performance ---");
         if (isClassification) {
             u32 correctPredictions = 0;
             for (u32 i = 0; i < originalInputs.size(); ++i) {
@@ -153,7 +154,7 @@ public:
                 }
             }
             f32 accuracy = static_cast<f32>(correctPredictions) / originalInputs.size() * 100.0f;
-            std::println("Accuracy: {:.2f}% ({}/{} correct predictions)", accuracy, correctPredictions, originalInputs.size());
+            std::println(std::cout,"Accuracy: {:.2f}% ({}/{} correct predictions)", accuracy, correctPredictions, originalInputs.size());
 
         } else { // Регрессия
             f32 totalPercentageError = 0;
@@ -168,10 +169,11 @@ public:
                 }
             }
             f32 meanPercentageError = totalPercentageError / originalInputs.size();
-            std::println("Mean Absolute Percentage Error (MAPE): {:.2f}%", meanPercentageError);
+            std::println(std::cout,"Mean Absolute Percentage Error (MAPE): {:.2f}%", meanPercentageError);
         }
-        std::println("");
+        std::println(std::cout,"");
 
         return *this;
     }
 };
+#endif

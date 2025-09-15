@@ -1,11 +1,14 @@
 
-export module Parser;
+#ifndef PARSER_HPP
+#define PARSER_HPP
 
-import std;
-import types;
-import Neuron;
+#include <fstream>
+#include <map>
+#include <vector>
 
-export class Parser {
+#include "../util/eigen_types.hpp"
+
+class Parser {
     std::vector<Input> _inputs;
     std::vector<Output> _outputs;
     std::vector<std::string> _header;
@@ -86,3 +89,5 @@ public:
     u32 getOutputSize() const { return _nextClassId == 0 ? 1 : _nextClassId; }
     u32 getInputSize() const { return _inputs.empty() ? 0 : _inputs.at(0).size(); }
 };
+
+#endif

@@ -1,8 +1,14 @@
-export module Network;
 
-import Layer;
-import types;
-import std;
+#ifndef NETWORK_HPP
+#define NETWORK_HPP
+
+#include <stdexcept>
+#include <variant>
+
+#include "ActivationPolicies.hpp"
+#include "Layer.hpp"
+#include "../util/eigen_types.hpp"
+#include "../util/constants.hpp"
 
 using AnyLayer = std::variant<
     Layer<SigmoidPolicy>,
@@ -10,7 +16,7 @@ using AnyLayer = std::variant<
     Layer<ReLUPolicy>
 >;
 
-export class Network {
+class Network {
     std::vector<AnyLayer> _layers{};
 public:
 
@@ -71,7 +77,7 @@ public:
                 updateWeights(input, learningRate);
             }
             if (LOG_STATUS) {
-                std::println("Epoch {}/{}, Error: {}", epoch + 1,epochs,totalError);
+                std::println(std::cout, "Epoch {}/{}, Error: {}", epoch + 1,epochs,totalError);
             }
         }
     }
@@ -130,3 +136,5 @@ private:
         }
     }
 };
+
+#endif

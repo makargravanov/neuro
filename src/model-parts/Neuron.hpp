@@ -1,14 +1,14 @@
-export module Neuron;
 
-import std;
-import types;
-export import ActivationPolicies;
+#ifndef NEURON_HPP
+#define NEURON_HPP
 
-export using Input = std::vector<f32>;
-export using Output = Input;
-export using Weights = std::vector<f32>;
+#include <vector>
+#include <stdexcept>
+#include "../util/eigen_types.hpp"
 
-export template<typename ActivationPolicy>
+
+
+template<typename ActivationPolicy>
 class Neuron {
     Weights _weights{}; // по одному весу на каждый вход
     f32 _bias = 0;
@@ -66,3 +66,5 @@ public:
 
     void setBias(f32 b) { _bias = b; }
 };
+
+#endif

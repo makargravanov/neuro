@@ -1,9 +1,12 @@
-export module Normalizer;
 
-import types;
-import std;
+#ifndef NORMALIZER_HPP
+#define NORMALIZER_HPP
 
-export class Normalizer {
+#include "types.hpp"
+
+#include "eigen_types.hpp"
+
+class Normalizer {
     f32 _min = std::numeric_limits<f32>::max();
     f32 _max = std::numeric_limits<f32>::lowest();
 
@@ -27,3 +30,5 @@ public:
         return value * (_max - _min) + _min;
     }
 };
+
+#endif

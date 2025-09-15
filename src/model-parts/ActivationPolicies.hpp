@@ -1,15 +1,19 @@
-export module ActivationPolicies;
-import std;
-import types;
 
-export enum class PolicyType {
+#ifndef ACTIVATION_POLICIES_HPP
+#define ACTIVATION_POLICIES_HPP
+
+#include <cmath>
+
+#include "../util/types.hpp"
+
+enum class PolicyType {
     SIGMOID,
     LINEAR,
     RELU
 };
 
 
-export struct SigmoidPolicy {
+struct SigmoidPolicy {
     static f32 activate(f32 x) {
         return 1.0f / (1.0f + std::exp(-x));
     }
@@ -18,7 +22,7 @@ export struct SigmoidPolicy {
     }
 };
 
-export struct LinearPolicy {
+struct LinearPolicy {
     static f32 activate(f32 x) {
         return x;
     }
@@ -27,7 +31,7 @@ export struct LinearPolicy {
     }
 };
 
-export struct ReLUPolicy {
+struct ReLUPolicy {
     static f32 activate(f32 x) {
         return std::max(0.0f, x);
     }
@@ -35,3 +39,5 @@ export struct ReLUPolicy {
         return activatedX > 0.0f ? 1.0f : 0.0f;
     }
 };
+
+#endif

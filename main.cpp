@@ -1,17 +1,14 @@
-import Normalizer;
-import Network;
-import Parser;
-import Neuron;
-import Model;
-import types;
-import std;
+
+
+#include "src/Model.hpp"
+#include "src/model-parts/Network.hpp"
 
 void printVector(const std::vector<f32>& vec) {
-    std::print("[");
+    std::print(std::cout, "[");
     for (std::size_t i = 0; i < vec.size(); ++i) {
-        std::print("{:.2f}{}", vec[i], (i == vec.size() - 1 ? "" : ", "));
+        std::print(std::cout, "{:.2f}{}", vec[i], (i == vec.size() - 1 ? "" : ", "));
     }
-    std::print("]");
+    std::print(std::cout, "]");
 }
 
 void xorExample() {
@@ -23,10 +20,10 @@ void xorExample() {
         {0}, {1}, {1}, {0}
     };
     net.train(trainingData, expectedOutputs, 10000, 0.2f);
-    std::println("--- Results ---");
+    std::println(std::cout, "--- Results ---");
     for (const auto& input : trainingData) {
         Output result = net.run(input);
-        std::println("Input: [{},{}], Output: {}",input.at(0), input.at(1), result.at(0));
+        std::println(std::cout, "Input: [{},{}], Output: {}",input.at(0), input.at(1), result.at(0));
     }
 }
 
@@ -44,18 +41,18 @@ void irisExample() {
 
         iris.evaluate();
 
-        std::println("--- Prediction Example ---");
+        std::println(std::cout, "--- Prediction Example ---");
         Input sample = {5.1, 3.5, 1.4, 0.2}; // пример ириса сетоза
         Output prediction = iris.predict(sample);
 
-        std::print("Input: ");
+        std::print(std::cout, "Input: ");
         printVector(sample);
-        std::print(" -> Predicted output: ");
+        std::print(std::cout, " -> Predicted output: ");
         printVector(prediction);
-        std::println(" (Expected: [1.00, 0.00, 0.00])");
+        std::println(std::cout, " (Expected: [1.00, 0.00, 0.00])");
 
     } catch (const std::exception& e) {
-        std::println("An error occurred: {}", e.what());
+        std::println(std::cout, "An error occurred: {}", e.what());
     }
 }
 
@@ -72,16 +69,17 @@ void bjuExample() {
             .evaluate();
 
         Input newProduct = {2323442, 1000, 1342340};
-        std::print("Predicting for B/J/U: ");printVector(newProduct);
-        std::println(" -> Predicted kcal: {:.1f}", regressor.predict(newProduct)[0]);
+        std::print(std::cout, "Predicting for B/J/U: ");printVector(newProduct);
+        std::println(std::cout, " -> Predicted kcal: {:.1f}", regressor.predict(newProduct)[0]);
 
     } catch (const std::exception& e) {
-        std::println("An error occurred: {}", e.what());
+        std::println(std::cout, "An error occurred: {}", e.what());
     }
 }
 
 i32 main() {
-    std::println("--- Running BJU Regression Example ---");
+
+    std::println(std::cout, "--- Running BJU Regression Example ---");
     bjuExample();
 
     return 0;

@@ -10,6 +10,8 @@ project(neuro LANGUAGES CXX)
 
 include(FetchContent)
 
+set(BOOST_ENABLE_CMAKE ON)
+
 FetchContent_Declare(
         boost
         GIT_REPOSITORY https://github.com/boostorg/boost.git
@@ -18,13 +20,23 @@ FetchContent_Declare(
         GIT_PROGRESS   TRUE
 )
 
-FetchContent_MakeAvailable(boost)
+FetchContent_Declare(
+        eigen
+        GIT_REPOSITORY https://gitlab.com/libeigen/eigen.git
+        GIT_TAG        3.4.0
+)
+
+FetchContent_MakeAvailable(boost eigen)
 
 add_compile_options(-fmodules-ts)
 
+file(GLOB_RECURSE HPP_DIR "src/*.hpp")
 file(GLOB_RECURSE MODULES_DIR "src/*.cppm")
 
-add_executable(main main.cpp)
+add_executable(main
+        main.cpp
+        ${HPP_DIR}
+)
 target_sources(main PUBLIC
         FILE_SET myModules
         TYPE CXX_MODULES
@@ -32,8 +44,17 @@ target_sources(main PUBLIC
         FILES ${MODULES_DIR}
 )
 
-target_include_directories(main PRIVATE ${boost_SOURCE_DIR})
-
 target_compile_options(main PRIVATE -fmodules-ts)
 
-target_link_libraries(main PRIVATE stdc++exp)
+target_link_libraries(main PRIVATE
+        stdc++exp
+        Boost::system
+        Boost::filesystem
+        Boost::thread
+        Boost::asio
+        eigen
+)
+
+if(WIN32)
+    target_link_libraries(main PRIVATE ws2_32)
+endif()

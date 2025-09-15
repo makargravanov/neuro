@@ -18,18 +18,7 @@ FetchContent_Declare(
         GIT_PROGRESS   TRUE
 )
 
-FetchContent_Declare(
-        eigen
-        GIT_REPOSITORY https://gitlab.com/libeigen/eigen.git
-        GIT_TAG        3.4.0
-        GIT_SHALLOW    TRUE
-)
-
-set(EIGEN_BUILD_DOCS OFF CACHE BOOL "Disable Eigen docs" FORCE)
-set(EIGEN_BUILD_TESTING OFF CACHE BOOL "Disable Eigen testing" FORCE)
-set(EIGEN_BUILD_EXAMPLES OFF CACHE BOOL "Disable Eigen examples" FORCE)
-
-FetchContent_MakeAvailable(boost eigen)
+FetchContent_MakeAvailable(boost)
 
 add_compile_options(-fmodules-ts)
 
@@ -44,7 +33,6 @@ target_sources(main PUBLIC
 )
 
 target_include_directories(main PRIVATE ${boost_SOURCE_DIR})
-target_include_directories(main PRIVATE ${eigen_SOURCE_DIR})
 
 target_compile_options(main PRIVATE -fmodules-ts)
 

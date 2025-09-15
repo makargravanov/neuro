@@ -31,11 +31,13 @@ FetchContent_MakeAvailable(boost eigen)
 add_compile_options(-fmodules-ts)
 
 file(GLOB_RECURSE HPP_DIR "src/*.hpp")
+file(GLOB_RECURSE CPP_DIR "src/*.cpp")
 file(GLOB_RECURSE MODULES_DIR "src/*.cppm")
 
 add_executable(main
         main.cpp
         ${HPP_DIR}
+        ${CPP_DIR}
 )
 target_sources(main PUBLIC
         FILE_SET myModules
@@ -52,9 +54,10 @@ target_link_libraries(main PRIVATE
         Boost::filesystem
         Boost::thread
         Boost::asio
+        Boost::beast
         eigen
 )
 
 if(WIN32)
-    target_link_libraries(main PRIVATE ws2_32)
+    target_link_libraries(main PRIVATE ws2_32 mswsock)
 endif()

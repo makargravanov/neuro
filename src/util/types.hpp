@@ -26,12 +26,6 @@ using char32 = char32_t;
 using f32 = float;
 using f64 = double;
 
-template<typename T>
-using makeUnsigned = std::make_unsigned_t<T>;
-
-template<typename T>
-using makeSigned = std::make_signed_t<T>;
-
 static_assert(sizeof(i8) == 1, "Invalid i8 size");
 static_assert(sizeof(u8) == 1, "Invalid u8 size");
 static_assert(sizeof(i16) == 2, "Invalid i16 size");

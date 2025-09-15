@@ -158,7 +158,6 @@ public:
             f32 totalPercentageError = 0;
             for (u32 i = 0; i < originalInputs.size(); ++i) {
                 Output prediction = predict(originalInputs[i]);
-                // Используем (0) для доступа
                 f32 predictedValue = prediction(0);
                 f32 expectedValue = originalOutputs[i](0);
 

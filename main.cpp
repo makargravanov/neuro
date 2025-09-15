@@ -2,6 +2,7 @@
 
 #include "src/Model.hpp"
 #include "src/model-parts/Network.hpp"
+#include "src/web-server/Starter.h"
 
 void printVector(const Eigen::VectorXf& vec) {
     std::print(std::cout, "[");
@@ -87,10 +88,6 @@ void bjuExample() {
 }
 
 i32 main() {
-    std::println(std::cout, "--- Running Iris Classification Example ---");
-    irisExample();
-    std::println(std::cout, "\n--- Running BJU Regression Example ---");
-    bjuExample();
-
+    Starter::run(8080, 4);
     return 0;
 }

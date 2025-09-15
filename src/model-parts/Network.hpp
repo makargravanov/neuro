@@ -43,18 +43,16 @@ public:
         }
     }
 
-    Output run(const Input& input){
+    Output run(const Input& input) {
         if (_layers.empty()) throw std::invalid_argument("No layers provided");
-        if (input.empty()) throw std::invalid_argument("No input provided");
-
-        Input temp(input);
+        Input temp = input;
         for (auto& layer_variant : _layers) {
             temp = std::visit([&](auto& concrete_layer) {
                 return concrete_layer.activate(temp);
             }, layer_variant);
         }
         return temp;
-    };
+    }
 
     void train(const std::vector<Input>& trainingData, const std::vector<Output>& expectedOutputs, u32 epochs, f32 learningRate) {
         if (trainingData.size() != expectedOutputs.size()) {
@@ -67,72 +65,48 @@ public:
                 const auto& input = trainingData[i];
                 const auto& expected = expectedOutputs[i];
 
+                // Forward Pass
                 Output actual = run(input);
+                totalError += (expected - actual).squaredNorm();
 
-                for(u32 j = 0; j < actual.size(); ++j) {
-                    totalError += (expected[j] - actual[j]) * (expected[j] - actual[j]);
+                // Backward Pass
+                Output delta = (actual - expected).cwiseProduct(
+                    std::visit([](auto& layer){ return layer.activationDerivative(); }, _layers.back())
+                );
+
+                // обновляем выходной слой
+                std::visit([&](auto& layer){
+                    auto& weights = layer.getWeights();
+                    auto& biases = layer.getBiases();
+                    const auto& prevLayerOutput = _layers.size() > 1 ?
+                        std::visit([](auto& l){ return l.getLastOutput(); }, _layers[_layers.size()-2]) :
+                        input;
+
+                    weights -= learningRate * (delta * prevLayerOutput.transpose());
+                    biases -= learningRate * delta;
+                }, _layers.back());
+
+
+                // распространение ошибки на скрытые слои
+                for (i64 j = _layers.size() - 2; j >= 0; --j) {
+                    delta = std::visit([&](const auto& nextLayer, auto& currentLayer) -> Output {
+                        Output newDelta = (nextLayer.getWeights().transpose() * delta).cwiseProduct(currentLayer.activationDerivative());
+
+                        // обновление весов текущего слоя
+                        const auto& prevLayerOutput = (j > 0) ?
+                            std::visit([](auto& l){ return l.getLastOutput(); }, _layers[j-1]) :
+                            input;
+
+                        currentLayer.getWeights() -= learningRate * (newDelta * prevLayerOutput.transpose());
+                        currentLayer.getBiases() -= learningRate * newDelta;
+
+                        return newDelta;
+                    }, _layers[j+1], _layers[j]);
                 }
-
-                backwardPass(expected);
-                updateWeights(input, learningRate);
             }
             if (LOG_STATUS) {
-                std::println(std::cout, "Epoch {}/{}, Error: {}", epoch + 1,epochs,totalError);
+                std::println(std::cout, "Epoch {}/{}, Error: {}", epoch + 1, epochs, totalError);
             }
-        }
-    }
-
-private:
-    void backwardPass(const Output& expectedOutput) {
-        // --- Обработка выходного слоя ---
-        auto& outputLayer_variant = _layers.back();
-        std::visit([&](auto& outputLayer) {
-            auto& outputNeurons = outputLayer.getNeurons();
-            for (u32 i = 0; i < outputNeurons.size(); ++i) {
-                auto& neuron = outputNeurons[i];
-                f32 error = expectedOutput[i] - neuron.getOutput();
-                neuron.setDelta(error * neuron.activationDerivative());
-            }
-        }, outputLayer_variant);
-
-        // --- Обработка скрытых слоев ---
-        for (i64 i = _layers.size() - 2; i >= 0; --i) {
-            auto& hiddenLayer_variant = _layers[i];
-            auto& nextLayer_variant = _layers[i + 1];
-
-            std::visit([&](auto& hiddenLayer, const auto& nextLayer) {
-                auto& hiddenNeurons = hiddenLayer.getNeurons();
-                const auto& nextNeurons = nextLayer.getNeurons();
-
-                for (u32 j = 0; j < hiddenNeurons.size(); ++j) {
-                    auto& neuron = hiddenNeurons[j];
-                    f32 error = 0.0f;
-                    for (const auto& nextNeuron : nextNeurons) {
-                        error += nextNeuron.getWeights()[j] * nextNeuron.getDelta();
-                    }
-                    neuron.setDelta(error * neuron.activationDerivative());
-                }
-            }, hiddenLayer_variant, nextLayer_variant);
-        }
-    }
-
-    void updateWeights(const Input& initialInput, f32 learningRate) {
-        Input currentInput = initialInput;
-
-        for (auto& layer_variant : _layers) {
-            currentInput = std::visit([&](auto& layer) {
-                auto& neurons = layer.getNeurons();
-                for (auto& neuron : neurons) {
-                    neuron.updateWeights(currentInput, learningRate);
-                }
-
-                Output layerOutput;
-                layerOutput.reserve(neurons.size());
-                for(const auto& neuron : neurons) {
-                    layerOutput.push_back(neuron.getOutput());
-                }
-                return layerOutput; // Возвращаем выход для следующего слоя
-            }, layer_variant);
         }
     }
 };

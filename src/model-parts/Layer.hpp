@@ -2,44 +2,42 @@
 #ifndef LAYER_HPP
 #define LAYER_HPP
 
-#include <random>
-#include "Neuron.hpp"
-
+#include "../util/eigen_types.hpp"
 
 template<typename ActivationPolicy>
 class Layer {
-    std::vector<Neuron<ActivationPolicy>> _neurons;
-public:
+    WeightMatrix _weights;
+    BiasVector _biases;
 
+    Output _lastOutput;
+    Input _lastInput;
+public:
     Layer() = default;
 
     explicit Layer(const u32 numberOfNeurons, u32 lastNumberOfNeurons) {
-        std::random_device rd;
-        std::mt19937 gen(rd());
-        std::uniform_real_distribution dis(-0.5f, 0.5f);
-
-        _neurons.resize(numberOfNeurons);
-        for (u32 i = 0; i < numberOfNeurons; i++) {
-            Weights initialWeights(lastNumberOfNeurons);
-            for(f32& weight : initialWeights) {
-                weight = dis(gen);
-            }
-            f32 initialBias = dis(gen);
-            _neurons.at(i) = Neuron<ActivationPolicy>(initialWeights, initialBias);
-        }
+        _weights = WeightMatrix::Random(numberOfNeurons, lastNumberOfNeurons);
+        _biases = BiasVector::Random(numberOfNeurons);
     };
 
-    std::vector<Neuron<ActivationPolicy>>& getNeurons() { return _neurons; }
-    const std::vector<Neuron<ActivationPolicy>>& getNeurons() const { return _neurons; }
-
     Output activate(const Input& input) {
-        Output output;
-        output.reserve(_neurons.size());
-        for (auto& neuron : _neurons) {
-            output.push_back(neuron.activation(input));
-        }
+        _lastInput = input;
+        Input z = _weights * input + _biases;
+        _lastOutput = z.unaryExpr(&ActivationPolicy::activate);
 
-        return output;
+        return _lastOutput;
+    }
+
+
+    WeightMatrix& getWeights() { return _weights; }
+    BiasVector& getBiases() { return _biases; }
+    [[nodiscard]] const WeightMatrix& getWeights() const { return _weights; }
+    [[nodiscard]] const BiasVector& getBiases() const { return _biases; }
+
+    [[nodiscard]] const Output& getLastOutput() const { return _lastOutput; }
+    [[nodiscard]] const Input& getLastInput() const { return _lastInput; }
+
+    [[nodiscard]] Output activationDerivative() const {
+        return _lastOutput.unaryExpr(&ActivationPolicy::derivative);
     }
 };
 

@@ -3,6 +3,7 @@
 
 #include <iostream>
 #include <memory>
+#include <ranges>
 
 #include "model-parts/Network.hpp"
 #include "model-parts/Parser.hpp"
@@ -57,7 +58,7 @@ public:
             std::println(std::cout,"--- 2. Normalization enabled ---");
             // Подготовка нормализаторов
             inputNormalizers.resize(inputSize);
-            for (u32 i = 0; i < inputSize; ++i) {
+            for (u64 i = 0; i < inputSize; ++i) {
                 inputNormalizers[i].fit(originalInputs, i);
             }
             // Для регрессии нормализуем и выход
@@ -94,12 +95,12 @@ public:
             std::println(std::cout,"Applying normalization to training data...");
             for (auto& row : trainingInputs) {
                 for (u32 i = 0; i < row.size(); ++i) {
-                    row[i] = inputNormalizers[i].transform(row[i]);
+                    row(i) = inputNormalizers[i].transform(row(i));
                 }
             }
             if (outputNormalizer.has_value()) {
                 for (auto& row : trainingOutputs) {
-                    row[0] = outputNormalizer->transform(row[0]);
+                    row(0) = outputNormalizer->transform(row(0));
                 }
             }
         }
@@ -120,7 +121,7 @@ public:
         // нормализуем вход, если нужно
         if (normalizationEnabled) {
             for (u32 i = 0; i < processedInput.size(); ++i) {
-                processedInput[i] = inputNormalizers[i].transform(processedInput[i]);
+                processedInput(i) = inputNormalizers[i].transform(processedInput(i));
             }
         }
 
@@ -128,7 +129,7 @@ public:
 
         // денормализуем выход, если это была регрессия с нормализацией
         if (normalizationEnabled && outputNormalizer.has_value()) {
-            normalizedResult[0] = outputNormalizer->inverseTransform(normalizedResult[0]);
+            normalizedResult(0) = outputNormalizer->inverseTransform(normalizedResult(0));
         }
 
         return normalizedResult;
@@ -141,13 +142,10 @@ public:
             u32 correctPredictions = 0;
             for (u32 i = 0; i < originalInputs.size(); ++i) {
                 Output prediction = predict(originalInputs[i]);
-                
-                // Находим индекс с максимальным значением (предсказанный класс)
-                auto predictedIt = std::ranges::max_element(prediction);
-                u32 predictedIndex = std::distance(prediction.begin(), predictedIt);
 
-                auto expectedIt = std::ranges::max_element(originalOutputs[i]);
-                u32 expectedIndex = std::distance(originalOutputs[i].begin(), expectedIt);
+                Eigen::Index predictedIndex, expectedIndex;
+                prediction.maxCoeff(&predictedIndex);
+                originalOutputs[i].maxCoeff(&expectedIndex);
 
                 if (predictedIndex == expectedIndex) {
                     correctPredictions++;
@@ -160,8 +158,9 @@ public:
             f32 totalPercentageError = 0;
             for (u32 i = 0; i < originalInputs.size(); ++i) {
                 Output prediction = predict(originalInputs[i]);
-                f32 predictedValue = prediction[0];
-                f32 expectedValue = originalOutputs[i][0];
+                // Используем (0) для доступа
+                f32 predictedValue = prediction(0);
+                f32 expectedValue = originalOutputs[i](0);
 
                 if (expectedValue != 0) {
                     f32 error = std::abs(predictedValue - expectedValue);

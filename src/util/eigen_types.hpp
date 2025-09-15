@@ -5,13 +5,14 @@
 #ifndef EIGEN_TYPES_HPP
 #define EIGEN_TYPES_HPP
 
-
 #include <Eigen/Dense>
-
 #include "types.hpp"
 
-using Input = std::vector<f32>;
-using Output = Input;
-using Weights = std::vector<f32>;
+using Input = Eigen::VectorXf;
+using Output = Eigen::VectorXf;
+//матрица весов для слоя
+using WeightMatrix = Eigen::MatrixXf;
+//вектор смещений для слоя
+using BiasVector = Eigen::VectorXf;
 
 #endif //EIGEN_TYPES_HPP

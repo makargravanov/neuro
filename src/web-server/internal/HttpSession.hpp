@@ -7,7 +7,7 @@
 
 #include <iostream>
 
-#include "../controllers/Controller.h"
+#include "../controllers/Controller.hpp"
 
 inline void fail(beast::error_code ec, char const* what) {
     std::println(std::cerr, "{} : {}", what, ec.message());

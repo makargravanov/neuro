@@ -6,7 +6,7 @@
 #define STARTER_H
 #include "../util/types/types.hpp"
 
-#include "internal/RestServer.h"
+#include "internal/RestServer.hpp"
 
 
 class Starter {

@@ -57,10 +57,10 @@ target_compile_options(main PRIVATE -fmodules-ts)
 target_link_libraries(main PRIVATE
         stdc++exp
         Boost::system
-        Boost::filesystem
         Boost::thread
         Boost::asio
         Boost::beast
+        Boost::uuid
         eigen
         nlohmann-json
 )

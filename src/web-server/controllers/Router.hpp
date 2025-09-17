@@ -20,8 +20,8 @@ public:
     void addController(Args&&... args) {
         auto controller = std::make_unique<TController>(std::forward<Args>(args)...);
 
-        for (const auto& route : controller->getRoutes()) {
-            const std::string& path = route.getPathTemplate();
+        for (const auto& handler : controller->getRouteHandlers()) {
+            const std::string& path = handler.route.getPathTemplate();
             if (_registeredPaths.contains(path)) {
                 throw std::logic_error("Duplicate route path registered: " + path);
             }
@@ -31,43 +31,29 @@ public:
     }
 
     http::response<http::string_body> handleRequest(const http::request<http::string_body>& req) {
-        std::string_view targetPath = req.target();
-
-        // убираем query-параметры из пути для сопоставления
-        auto queryPos = targetPath.find('?');
-        if (queryPos != std::string_view::npos) {
-            targetPath = targetPath.substr(0, queryPos);
+        std::string_view target_path = req.target();
+        auto query_pos = target_path.find('?');
+        if (query_pos != std::string_view::npos) {
+            target_path = target_path.substr(0, query_pos);
         }
 
         for (const auto& controller : _controllers) {
-            for (const auto& route : controller->getRoutes()) {
+            for (const auto& routeHandler : controller->getRouteHandlers()) {
                 std::smatch match;
-                std::string target_str(targetPath);
+                std::string target_str(target_path);
 
-                // пытаемся сопоставить путь запроса с regex'ом роута
-                if (std::regex_match(target_str, match, route.getPathRegex())) {
+                if (std::regex_match(target_str, match, routeHandler.route.getPathRegex())) {
+                    // НАШЛИ СОВПАДЕНИЕ!
 
-                    // путь совпал, теперь проверяем HTTP-метод
-                    if (!route.methods.contains(req.method())) {
-                        return IController::methodNotAllowed();
-                    }
-
-                    // собираем контекст запроса
+                    // собираем контекст
                     RequestCtx ctx{req};
-                    const auto& paramNames = route.getParamNames();
+                    const auto& paramNames = routeHandler.route.getParamNames();
                     for (size_t i = 0; i < paramNames.size(); ++i) {
-                        // match[0] - вся строка, match[1] - первая группа и т.д.
                         ctx.pathParams[paramNames[i]] = match[i + 1].str();
                     }
 
-                    // вызываем нужный метод контроллера
-                    switch (req.method()) {
-                        case http::verb::get:     return controller->get(ctx);
-                        case http::verb::post:    return controller->post(ctx);
-                        case http::verb::patch:   return controller->patch(ctx);
-                        case http::verb::delete_: return controller->delete_(ctx);
-                        default:                  return IController::methodNotAllowed();
-                    }
+                    // просто передаем управление контроллеру
+                    return controller->dispatch(routeHandler.route, ctx);
                 }
             }
         }

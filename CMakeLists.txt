@@ -62,7 +62,7 @@ target_link_libraries(main PRIVATE
         Boost::beast
         Boost::uuid
         eigen
-        nlohmann-json
+        nlohmann_json
 )
 
 if(WIN32)

@@ -29,6 +29,7 @@ namespace Log {
             const char* levelStr = "UNKNOWN";
 
             switch (level) {
+
                 case FRAMEWORK_CONSTANTS::LogLevel::LOG_ERROR:
                     levelStr = "ERROR";
                     levelColor = Colors::BoldRed;
@@ -36,6 +37,10 @@ namespace Log {
                 case FRAMEWORK_CONSTANTS::LogLevel::LOG_WARNING:
                     levelStr = "WARNING";
                     levelColor = Colors::Yellow;
+                    break;
+                case FRAMEWORK_CONSTANTS::LogLevel::LOG_MESSAGE:
+                    levelStr = "MESSAGE";
+                    levelColor = Colors::Magenta;
                     break;
                 case FRAMEWORK_CONSTANTS::LogLevel::LOG_INFO:
                     levelStr = "INFO";
@@ -59,6 +64,9 @@ namespace Log {
                          loc.function_name(),
                          levelColor, message, Colors::Reset);
         }
+        inline void printMessageSimple(std::string_view color, std::string_view message) {
+            std::print(std::cout, "{}{}{}", color, message, Colors::Reset);
+        }
     }
 
     class Logger {
@@ -75,6 +83,12 @@ namespace Log {
             }
         }
 
+        template<typename... Args>
+        void message(std::format_string<Args...> formatStr, Args&&... args) const {
+            if constexpr (FRAMEWORK_CONSTANTS::compileTimeLogLevel >= FRAMEWORK_CONSTANTS::LogLevel::LOG_MESSAGE) {
+                detail::printMessage(m_location, FRAMEWORK_CONSTANTS::LogLevel::LOG_MESSAGE, std::format(formatStr, std::forward<Args>(args)...));
+            }
+        }
 
         template<typename... Args>
         void warning(std::format_string<Args...> formatStr, Args&&... args) const {
@@ -94,6 +108,13 @@ namespace Log {
         void debug(std::format_string<Args...> formatStr, Args&&... args) const {
             if constexpr (FRAMEWORK_CONSTANTS::compileTimeLogLevel >= FRAMEWORK_CONSTANTS::LogLevel::LOG_DEBUG) {
                 detail::printMessage(m_location, FRAMEWORK_CONSTANTS::LogLevel::LOG_DEBUG, std::format(formatStr, std::forward<Args>(args)...));
+            }
+        }
+
+        template<typename... Args>
+        void withColor(std::string_view customColor, std::format_string<Args...> formatStr, Args&&... args) const {
+            if constexpr (FRAMEWORK_CONSTANTS::compileTimeLogLevel >= FRAMEWORK_CONSTANTS::LogLevel::LOG_MESSAGE) {
+                detail::printMessageSimple(customColor, std::format(formatStr, std::forward<Args>(args)...));
             }
         }
 

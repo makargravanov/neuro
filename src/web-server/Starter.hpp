@@ -4,6 +4,7 @@
 
 #ifndef STARTER_H
 #define STARTER_H
+#include "../util/logging.hpp"
 #include "../util/types/types.hpp"
 #include "controllers/api/DatasetController.hpp"
 
@@ -13,18 +14,46 @@
 class Starter {
 
 public:
-    static i32 run(const u16 port = 8080, const u16 threads = 4) {
-        auto const address = net::ip::make_address("0.0.0.0");
+    static i32 run(const u16 port = 8080, const u16 threads = 4, const std::string& address = "0.0.0.0") {
+        Log::Logger().message(R"(
+Starting...)");
+        auto const _address = net::ip::make_address(address);
 
         net::io_context ioc{threads};
 
-        Router router{};
+        auto router = std::make_shared<Router>();
 
         auto datasetService = std::make_shared<DatasetService>();
 
-        router.addController<DatasetController>(DatasetController(datasetService));
+        router->addController<DatasetController>(datasetService);
 
-        std::make_shared<RestServer>(router, ioc, tcp::endpoint{address, port})->run();
+        std::make_shared<RestServer>(router, ioc, tcp::endpoint{_address, port})->run();
+
+        Log::Logger().message(R"(
+Server is running.)");
+
+        Log::Logger().withColor(Log::Colors::Magenta,
+            R"(
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+        ███╗   ██╗  ███████╗  ██╗   ██╗  ██████╗    ██████╗
+        ████╗  ██║  ██╔════╝  ██║   ██║  ██╔══██╗  ██╔═══██╗
+        ██╔██╗ ██║  █████╗    ██║   ██║  ██████╔╝  ██║   ██║
+        ██║╚██╗██║  ██╔══╝    ██║   ██║  ██╔══██╗  ██║   ██║
+        ██║ ╚████║  ███████╗  ╚██████╔╝  ██║  ██║  ╚██████╔╝
+        ╚═╝  ╚═══╝  ╚══════╝   ╚═════╝   ╚═╝  ╚═╝   ╚═════╝
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+|| Started with {} threads on: )", threads);
+
+        Log::Logger().withColor(Log::Colors::Cyan, R"(http://{}:{})", address, port);
+        Log::Logger().withColor(Log::Colors::Magenta, R"(
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+)");
 
         std::vector<std::thread> v;
         v.reserve(threads - 1);

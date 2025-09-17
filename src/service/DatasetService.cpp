@@ -67,7 +67,7 @@ std::string DatasetService::loadDataset(const std::string& filePath) {
 }
 
 std::vector<std::pair<std::string, std::string>> DatasetService::loadedDatasetsList() const {
-    std::lock_guard lock(_mutex);
+    std::shared_lock lock(_mutex);
     std::vector<std::pair<std::string, std::string>> list;
     list.reserve(_datasets.size());
     for (const auto& [id, datasetPtr] : _datasets) {
@@ -82,12 +82,17 @@ std::vector<std::pair<std::string, std::string>> DatasetService::unloadDataset(c
          _datasets.erase(id);
      }
 
-     return loadedDatasetsList();
+    std::vector<std::pair<std::string, std::string>> list;
+    list.reserve(_datasets.size());
+    for (const auto& [datasetId, datasetPtr] : _datasets) {
+        list.emplace_back(datasetId, datasetPtr->name);
+    }
+    return list;
 }
 
 
 std::optional<PaginatedData> DatasetService::getDatasetPage(const std::string& datasetId, u32 page, u32 pageSize) const {
-    std::lock_guard lock(_mutex);
+    std::shared_lock lock(_mutex);
 
     auto it = _datasets.find(datasetId);
     if (it == _datasets.end()) {

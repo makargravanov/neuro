@@ -5,6 +5,7 @@
 #ifndef DATASETSERVICE_H
 #define DATASETSERVICE_H
 #include <chrono>
+#include <shared_mutex>
 #include <string>
 #include <vector>
 #include "../util/types/eigen_types.hpp"
@@ -74,14 +75,13 @@ public:
     std::optional<PaginatedData> getDatasetPage(const std::string& datasetId, u32 page, u32 pageSize) const;
 
 private:
-    static std::pair<std::vector<std::string>, std::vector<std::vector<std::string>>>
-    parseCsv(const std::string& filePath);
+    static std::pair<std::vector<std::string>, std::vector<std::vector<std::string>>> parseCsv(const std::string& filePath);
 
-    std::unordered_map<std::string, std::shared_ptr<Dataset>> _datasets;
+    std::unordered_map<std::string, std::shared_ptr<Dataset>> _datasets{};
 
     // мьютекс для потокобезопасного доступа к _datasets
     // mutable позволяет использовать мьютекс в const-методах для безопасного чтения
-    mutable std::mutex _mutex;
+    mutable std::shared_mutex _mutex;
 };
 
 

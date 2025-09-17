@@ -17,10 +17,10 @@ class HttpSession : public std::enable_shared_from_this<HttpSession> {
     beast::tcp_stream _stream;
     beast::flat_buffer _buffer;
     http::request<http::string_body> _req;
-    Router& _apiController;
+    std::shared_ptr<Router> _apiController;
 
 public:
-    HttpSession(tcp::socket&& socket, Router& controller)
+    HttpSession(tcp::socket&& socket, std::shared_ptr<Router> controller)
         : _stream(std::move(socket)), _apiController(controller)
     {}
 
@@ -50,7 +50,7 @@ private:
     }
 
     void handleRequest() {
-        http::response<http::string_body> res = _apiController.handleRequest(_req);
+        http::response<http::string_body> res = _apiController->handleRequest(_req);
         sendResponse(std::move(res));
     }
 

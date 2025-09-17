@@ -12,10 +12,10 @@
 class RestServer : public std::enable_shared_from_this<RestServer> {
     net::io_context& _ioc;
     tcp::acceptor _acceptor;
-    Router& _controller;
+    std::shared_ptr<Router> _controller;
 
 public:
-    RestServer(Router& router, net::io_context& ioc, tcp::endpoint endpoint)
+    RestServer(std::shared_ptr<Router> router, net::io_context& ioc, tcp::endpoint endpoint)
         : _controller(router), _ioc(ioc), _acceptor(ioc) {
         beast::error_code ec;
 

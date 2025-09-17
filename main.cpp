@@ -1,8 +1,11 @@
 
 
 #include "src/util/model/Model.hpp"
-#include "src/model-parts/Network.hpp"
+#include "src/util/model/model-parts/Network.hpp"
+#include "src/util/logging.hpp"
 #include "src/web-server/Starter.hpp"
+
+import EnableColors;
 
 void printVector(const Eigen::VectorXf& vec) {
     std::print(std::cout, "[");
@@ -88,6 +91,7 @@ void bjuExample() {
 }
 
 i32 main() {
-    Starter::run(8080, 4);
+    Log::Platform::enableColors();
+    //Starter::run(8080, 4);
     return 0;
 }

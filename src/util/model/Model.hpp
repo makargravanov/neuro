@@ -8,6 +8,7 @@
 #include "model-parts/Network.hpp"
 #include "Parser.hpp"
 #include "Normalizer.hpp"
+#include "../logging.hpp"
 
 class Model {
     std::unique_ptr<Network> network = nullptr;
@@ -28,7 +29,7 @@ public:
     Model() = default;
 
     Model& fromCSV(const std::string& filepath, const std::vector<u32>& featureColumns, u32 targetColumn, bool hasHeader = true) {
-        std::println(std::cout,"--- 1. Loading data from {} ---", filepath);
+        Log::Logger().info("--- 1. Loading data from {} ---", filepath);
         Parser parser(filepath, featureColumns, targetColumn, hasHeader);
 
         // оригинальные копии данных
@@ -44,9 +45,9 @@ public:
         // определяем тип задачи: если выходной вектор больше 1, это классификация (one-hot)
         isClassification = outputSize > 1;
 
-        std::println(std::cout, "Dataset loaded: {} samples.", originalInputs.size());
-        std::println(std::cout, "Input size: {}. Output size: {}.", inputSize, outputSize);
-        std::println(std::cout, "Task type: {}.\n", isClassification ? "Classification" : "Regression");
+        Log::Logger().info("Dataset loaded: {} samples.", originalInputs.size());
+        Log::Logger().info("Input size: {}. Output size: {}.", inputSize, outputSize);
+        Log::Logger().info("Task type: {}.\n", isClassification ? "Classification" : "Regression");
 
         return *this;
     }
@@ -137,7 +138,7 @@ public:
 
     // оценка качества на исходном датасете
     Model& evaluate() {
-        std::println(std::cout,"--- 5. Evaluating model performance ---");
+        Log::Logger().info("--- 5. Evaluating model performance ---");
         if (isClassification) {
             u32 correctPredictions = 0;
             for (u32 i = 0; i < originalInputs.size(); ++i) {
@@ -152,7 +153,7 @@ public:
                 }
             }
             f32 accuracy = static_cast<f32>(correctPredictions) / originalInputs.size() * 100.0f;
-            std::println(std::cout,"Accuracy: {:.2f}% ({}/{} correct predictions)", accuracy, correctPredictions, originalInputs.size());
+            Log::Logger().info("Accuracy: {:.2f}% ({}/{} correct predictions)", accuracy, correctPredictions, originalInputs.size());
 
         } else { // Регрессия
             f32 totalPercentageError = 0;
@@ -167,9 +168,9 @@ public:
                 }
             }
             f32 meanPercentageError = totalPercentageError / originalInputs.size();
-            std::println(std::cout,"Mean Absolute Percentage Error (MAPE): {:.2f}%", meanPercentageError);
+            Log::Logger().info("Mean Absolute Percentage Error (MAPE): {:.2f}%", meanPercentageError);
         }
-        std::println(std::cout,"");
+        Log::Logger().info("");
 
         return *this;
     }

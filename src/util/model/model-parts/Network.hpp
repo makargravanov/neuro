@@ -8,7 +8,7 @@
 #include "ActivationPolicies.hpp"
 #include "Layer.hpp"
 #include "../../types/eigen_types.hpp"
-#include "../../constants.hpp"
+#include "../../logging.hpp"
 
 using AnyLayer = std::variant<
     Layer<SigmoidPolicy>,
@@ -104,9 +104,7 @@ public:
                     }, _layers[j+1], _layers[j]);
                 }
             }
-            if (LOG_STATUS) {
-                std::println(std::cout, "Epoch {}/{}, Error: {}", epoch + 1, epochs, totalError);
-            }
+            Log::Logger().debug("Epoch {}/{}, Error: {}", epoch + 1, epochs, totalError);
         }
     }
 };

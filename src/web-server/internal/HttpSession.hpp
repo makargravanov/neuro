@@ -20,7 +20,7 @@ class HttpSession : public std::enable_shared_from_this<HttpSession> {
     std::shared_ptr<Router> _apiController;
 
 public:
-    HttpSession(tcp::socket&& socket, std::shared_ptr<Router> controller)
+    HttpSession(tcp::socket&& socket, const std::shared_ptr<Router>& controller)
         : _stream(std::move(socket)), _apiController(controller)
     {}
 

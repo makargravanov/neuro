@@ -2,7 +2,7 @@
 // Created by Alex on 15.09.2025.
 //
 
-#include "DatasetService.h"
+#include "DatasetService.hpp"
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -16,6 +16,7 @@
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/uuid_generators.hpp>
 #include <boost/uuid/uuid_io.hpp>
+#include "../util/logging.hpp"
 
 namespace fs = std::filesystem;
 
@@ -198,9 +199,9 @@ DatasetService::parseCsv(const std::string& filePath) {
 
         // проверка на случай, если в данных больше колонок, чем в заголовке
         if (row.size() > headers.size()) {
-            if (LOG_STATUS) {
-                std::println(std::cerr, "Data have more column than header!");
-            }
+
+            Log::Logger().warning("Data have more column than header!");
+
             row.resize(headers.size());
         }
 

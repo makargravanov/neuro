@@ -12,7 +12,7 @@
 class RestServer : public std::enable_shared_from_this<RestServer> {
     net::io_context& _ioc;
     tcp::acceptor _acceptor;
-    Controller _controller;
+    Router _controller;
 
 public:
     RestServer(net::io_context& ioc, tcp::endpoint endpoint)

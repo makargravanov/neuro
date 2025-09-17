@@ -7,7 +7,7 @@
 
 #include <iostream>
 
-#include "../controllers/Controller.hpp"
+#include "../controllers/Router.hpp"
 
 inline void fail(beast::error_code ec, char const* what) {
     std::println(std::cerr, "{} : {}", what, ec.message());
@@ -17,10 +17,10 @@ class HttpSession : public std::enable_shared_from_this<HttpSession> {
     beast::tcp_stream _stream;
     beast::flat_buffer _buffer;
     http::request<http::string_body> _req;
-    Controller& _apiController;
+    Router& _apiController;
 
 public:
-    HttpSession(tcp::socket&& socket, Controller& controller)
+    HttpSession(tcp::socket&& socket, Router& controller)
         : _stream(std::move(socket)), _apiController(controller)
     {}
 

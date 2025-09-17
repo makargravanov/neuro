@@ -5,6 +5,7 @@
 #ifndef STARTER_H
 #define STARTER_H
 #include "../util/types/types.hpp"
+#include "controllers/api/DatasetController.hpp"
 
 #include "internal/RestServer.hpp"
 
@@ -17,7 +18,13 @@ public:
 
         net::io_context ioc{threads};
 
-        std::make_shared<RestServer>(ioc, tcp::endpoint{address, port})->run();
+        Router router{};
+
+        auto datasetService = std::make_shared<DatasetService>();
+
+        router.addController<DatasetController>(DatasetController(datasetService));
+
+        std::make_shared<RestServer>(router, ioc, tcp::endpoint{address, port})->run();
 
         std::vector<std::thread> v;
         v.reserve(threads - 1);

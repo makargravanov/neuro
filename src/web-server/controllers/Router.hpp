@@ -22,10 +22,13 @@ public:
 
         for (const auto& handler : controller->getRouteHandlers()) {
             const std::string& path = handler.route.getPathTemplate();
-            if (_registeredPaths.contains(path)) {
-                throw std::logic_error("Duplicate route path registered: " + path);
+            for (const auto& method : handler.route.methods) {
+                std::string uniqueIdentifier = std::string(http::to_string(method)) + ":" + path;
+                if (_registeredPaths.contains(uniqueIdentifier)) {
+                    throw std::logic_error("Duplicate route registered: " + uniqueIdentifier);
+                }
+                _registeredPaths.insert(uniqueIdentifier);
             }
-            _registeredPaths.insert(path);
         }
         _controllers.push_back(std::move(controller));
     }
@@ -37,28 +40,37 @@ public:
             target_path = target_path.substr(0, query_pos);
         }
 
+        bool path_matched = false;
         for (const auto& controller : _controllers) {
             for (const auto& routeHandler : controller->getRouteHandlers()) {
                 std::smatch match;
                 std::string target_str(target_path);
 
                 if (std::regex_match(target_str, match, routeHandler.route.getPathRegex())) {
-                    // НАШЛИ СОВПАДЕНИЕ!
+                    path_matched = true;
+                    if (routeHandler.route.methods.contains(req.method())) {
+                        // НАШЛИ ПОЛНОЕ СОВПАДЕНИЕ (путь + метод)!
 
-                    // собираем контекст
-                    RequestCtx ctx{req};
-                    const auto& paramNames = routeHandler.route.getParamNames();
-                    for (size_t i = 0; i < paramNames.size(); ++i) {
-                        ctx.pathParams[paramNames[i]] = match[i + 1].str();
+                        // собираем контекст
+                        RequestCtx ctx{req};
+                        const auto& paramNames = routeHandler.route.getParamNames();
+                        for (size_t i = 0; i < paramNames.size(); ++i) {
+                            ctx.pathParams[paramNames[i]] = match[i + 1].str();
+                        }
+
+                        // передаем управление контроллеру
+                        return controller->dispatch(routeHandler.route, ctx);
                     }
-
-                    // просто передаем управление контроллеру
-                    return controller->dispatch(routeHandler.route, ctx);
                 }
             }
         }
+
+        // если мы здесь - значит полного совпадения не найдено
+        if (path_matched) {
+            return IController::methodNotAllowed();
+        }
+
         return IController::notFound("Route not found");
     }
 };
-
 #endif //CONTROLLER_H

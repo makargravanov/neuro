@@ -92,6 +92,6 @@ void bjuExample() {
 
 i32 main() {
     Log::Platform::enableColors();
-    //Starter::run(8080, 4);
+    Starter::run(8080, 4);
     return 0;
 }

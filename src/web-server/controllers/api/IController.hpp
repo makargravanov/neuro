@@ -41,7 +41,7 @@ public:
     // единственный метод, который вызывает Router
     // он сам найдет нужный обработчик и вызовет его.
     http::response<http::string_body> dispatch(const Route& matchedRoute, const RequestCtx& ctx) {
-        // проверяем, совпадает ли HTTP-метод
+        // роутер уже проверил совпадение метода, эта проверка для дополнительной надежности.
         if (!matchedRoute.methods.contains(ctx.originalRequest.method())) {
             return methodNotAllowed();
         }
@@ -49,7 +49,7 @@ public:
         // находим нужный handler по шаблону пути.
         // так как Router уже нашел совпадение, мы уверены, что handler здесь есть.
         for (const auto&[route, handler] : _routeHandlers) {
-            if (route.getPathTemplate() == matchedRoute.getPathTemplate()) {
+            if (route.getPathTemplate() == matchedRoute.getPathTemplate() && route.methods == matchedRoute.methods) {
                 return handler(ctx); // вызываем связанный обработчик
             }
         }

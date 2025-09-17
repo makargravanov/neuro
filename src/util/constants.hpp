@@ -14,7 +14,7 @@ namespace FRAMEWORK_CONSTANTS {
         LOG_DEBUG    // Детальная отладочная информация
     };
 
-    constexpr LogLevel compileTimeLogLevel = LogLevel::LOG_DEBUG;
+    constexpr LogLevel compileTimeLogLevel = LogLevel::LOG_INFO;
     constexpr LogLevel runtimeLogLevel = compileTimeLogLevel;
 
     inline std::string datasetsDirectory = "datasets";

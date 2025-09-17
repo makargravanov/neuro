@@ -32,6 +32,15 @@
     position: sticky;
     top: 0;
     backdrop-filter: blur(5px);
+    cursor: context-menu;
+}
+
+.menuTitle {
+    padding: 0.5rem 1rem;
+    font-size: 0.8rem;
+    color: var(--color-text-dim);
+    border-bottom: 1px solid var(--glass-border-color);
+    margin-bottom: 0.5rem;
 }
 
 .table td {

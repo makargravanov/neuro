@@ -12,3 +12,5 @@ export const loadDataset = (filePath: string) => api.post<{ datasetId: string }>
 export const unloadDataset = (id: string) => api.delete(`/datasets/${id}`);
 export const getDatasetPage = (id: string, page: number, pageSize: number) =>
     api.get<PaginatedData>(`/datasets/${id}`, { params: { page, pageSize } });
+export const removeColumn = (datasetId: string, columnName: string) =>
+    api.post<{ newDatasetId: string, newDatasetName: string }>(`/datasets/${datasetId}/transform/remove-column`, { columnName });

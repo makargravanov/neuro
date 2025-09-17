@@ -7,6 +7,8 @@
 #include "../util/logging.hpp"
 #include "../util/types/types.hpp"
 #include "controllers/api/DatasetController.hpp"
+#include "controllers/api/TransformationController.hpp"
+#include "../service/TransformationService.hpp"
 
 #include "internal/RestServer.hpp"
 
@@ -24,8 +26,10 @@ Starting...)");
         auto router = std::make_shared<Router>();
 
         auto datasetService = std::make_shared<DatasetService>();
+        auto transformationService = std::make_shared<TransformationService>();
 
         router->addController<DatasetController>(datasetService);
+        router->addController<TransformationController>(datasetService, transformationService);
 
         std::make_shared<RestServer>(router, ioc, tcp::endpoint{_address, port})->run();
 

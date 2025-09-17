@@ -61,5 +61,19 @@ export const useDatasets = () => {
         }
     };
 
-    return { available, loaded, viewingData, isLoading, error, handleLoad, handleUnload, handleView };
+    const handleRemoveColumn = async (datasetId: string, columnName: string) => {
+        setIsLoading(true);
+        setError(null);
+        try {
+            const res = await api.removeColumn(datasetId, columnName);
+            await fetchAll();
+            await handleView(res.data.newDatasetId);
+        } catch (e) {
+            setError(`Failed to remove column '${columnName}'.`);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    return { available, loaded, viewingData, isLoading, error, handleLoad, handleUnload, handleView, handleRemoveColumn};
 };

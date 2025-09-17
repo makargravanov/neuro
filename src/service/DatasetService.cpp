@@ -215,3 +215,27 @@ DatasetService::parseCsv(const std::string& filePath) {
 
     return {headers, data};
 }
+
+std::shared_ptr<const Dataset> DatasetService::getDatasetById(const std::string& id) const {
+    std::shared_lock lock(_mutex);
+    if (auto it = _datasets.find(id); it != _datasets.end()) {
+        return it->second;
+    }
+    return nullptr;
+}
+
+std::string DatasetService::registerTransformedDataset(std::shared_ptr<Dataset> dataset, const std::string& sourceName) {
+    std::lock_guard lock(_mutex);
+
+    // генерируем уникальный ID
+    const boost::uuids::uuid uuid = boost::uuids::random_generator()();
+    std::string id = to_string(uuid);
+
+    dataset->id = id;
+    dataset->name = sourceName; // новое имя, которое ввёл юзер
+    dataset->createdAt = std::chrono::system_clock::now();
+
+    _datasets[id] = dataset;
+
+    return id;
+}

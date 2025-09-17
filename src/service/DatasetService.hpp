@@ -74,6 +74,21 @@ public:
      */
     std::optional<PaginatedData> getDatasetPage(const std::string& datasetId, u32 page, u32 pageSize) const;
 
+    /**
+     * @brief Возвращает указатель на объект датасета по его ID.
+     * @param id Уникальный ID датасета.
+     * @return std::shared_ptr<const Dataset> или nullptr, если датасет не найден.
+     */
+    std::shared_ptr<const Dataset> getDatasetById(const std::string& id) const;
+
+    /**
+     * @brief Регистрирует новый, трансформированный датасет в памяти.
+     * @param dataset Указатель на новый объект датасета.
+     * @param sourceName Имя исходного датасета для генерации нового имени.
+     * @return ID нового зарегистрированного датасета.
+     */
+    std::string registerTransformedDataset(std::shared_ptr<Dataset> dataset, const std::string& sourceName);
+
 private:
     static std::pair<std::vector<std::string>, std::vector<std::vector<std::string>>> parseCsv(const std::string& filePath);
 

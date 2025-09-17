@@ -14,3 +14,5 @@ export const getDatasetPage = (id: string, page: number, pageSize: number) =>
     api.get<PaginatedData>(`/datasets/${id}`, { params: { page, pageSize } });
 export const removeColumn = (datasetId: string, columnName: string) =>
     api.post<{ newDatasetId: string, newDatasetName: string }>(`/datasets/${datasetId}/transform/remove-column`, { columnName });
+export const saveDatasetAs = (datasetId: string, newName: string) =>
+    api.post<{ newDatasetId: string, newDatasetName: string }>(`/datasets/${datasetId}/save-as`, { newName });

@@ -4,12 +4,14 @@
 
 #ifndef DATASETCONTROLLER_H
 #define DATASETCONTROLLER_H
+#include <filesystem>
 #include "IController.hpp"
 #include "../../../service/DatasetService.hpp"
 #include "../../../util/constants.hpp"
 
 using StringResponse = http::response<http::string_body>;
 using json = nlohmann::json;
+namespace fs = std::filesystem;
 
 // --- JSON Сериализация для наших структур данных ---
 // Это специальная функция, которую nlohmann::json находит сам
@@ -58,6 +60,11 @@ public:
               {
                   Route("/api/v1/datasets/{id}", {http::verb::delete_}),
                   [this](const RequestCtx& ctx) { return this->unloadDatasetById(ctx); }
+              },
+              // Сохранить текущий датасет под новым именем
+              {
+                  Route("/api/v1/datasets/{id}/save-as", {http::verb::post}),
+                  [this](const RequestCtx& ctx) { return this->handleSaveDatasetAs(ctx); }
               }
           }),
           _datasetService(std::move(service)) {
@@ -128,6 +135,33 @@ private:
         res.set(http::field::server, BOOST_BEAST_VERSION_STRING);
         res.prepare_payload();
         return res;
+    }
+
+    http::response<http::string_body> handleSaveDatasetAs(const RequestCtx& ctx) {
+        try {
+            const auto& sourceId = ctx.pathParams.at("id");
+            json requestBody = json::parse(ctx.originalRequest.body());
+            std::string newName = requestBody.at("newName").get<std::string>();
+
+            // Шаг 1: Сохранить датасет в новый CSV файл
+            std::string newFilePath = _datasetService->saveDatasetToFile(sourceId, newName);
+
+            // Шаг 2: Загрузить этот новый файл в память, чтобы он стал доступен для работы
+            std::string newDatasetId = _datasetService->loadDataset(newFilePath);
+
+            // Получаем только имя файла для ответа
+            std::string newDatasetName = fs::path(newFilePath).filename().string();
+
+            json responseBody = {
+                {"newDatasetId", newDatasetId},
+                {"newDatasetName", newDatasetName}
+            };
+            return createJsonResponse(http::status::created, responseBody);
+        } catch (const json::parse_error& e) {
+            return createErrorResponse(http::status::bad_request, "Invalid JSON format: " + std::string(e.what()));
+        } catch (const std::exception& e) {
+            return createErrorResponse(http::status::bad_request, e.what());
+        }
     }
 };
 

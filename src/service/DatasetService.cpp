@@ -224,18 +224,111 @@ std::shared_ptr<const Dataset> DatasetService::getDatasetById(const std::string&
     return nullptr;
 }
 
-std::string DatasetService::registerTransformedDataset(std::shared_ptr<Dataset> dataset, const std::string& sourceName) {
+std::string DatasetService::registerTransformedDataset(std::shared_ptr<Dataset> dataset, const std::string& datasetName) {
+    std::lock_guard lock(_mutex);
+    return registerTransformedDataset_locked(std::move(dataset), datasetName);
+}
+
+std::string DatasetService::copyAndRegisterDataset(const std::string& sourceId, const std::string& newName) {
     std::lock_guard lock(_mutex);
 
+    auto it = _datasets.find(sourceId);
+    if (it == _datasets.end()) {
+        throw std::runtime_error("Source dataset with ID " + sourceId + " not found.");
+    }
+
+    auto sourceDataset = it->second;
+
+    // Создаем глубокую копию датасета
+    auto newDataset = std::make_shared<Dataset>();
+    newDataset->headers = sourceDataset->headers;
+    newDataset->rawData = sourceDataset->rawData;
+    newDataset->rowCount = sourceDataset->rowCount;
+    newDataset->columnCount = sourceDataset->columnCount;
+
+    // Регистрируем новую копию с новым именем
+    return registerTransformedDataset_locked(newDataset, newName);
+}
+
+std::string DatasetService::registerTransformedDataset_locked(std::shared_ptr<Dataset> dataset, const std::string& datasetName) {
     // генерируем уникальный ID
     const boost::uuids::uuid uuid = boost::uuids::random_generator()();
     std::string id = to_string(uuid);
 
     dataset->id = id;
-    dataset->name = sourceName; // новое имя, которое ввёл юзер
+    dataset->name = datasetName;
     dataset->createdAt = std::chrono::system_clock::now();
 
-    _datasets[id] = dataset;
+    _datasets[id] = std::move(dataset);
 
     return id;
+}
+
+namespace {
+    // Вспомогательная функция для экранирования ячейки CSV
+    std::string escapeCsvCell(const std::string& cell) {
+        // Если в ячейке нет запятых, кавычек или символов новой строки, возвращаем как есть
+        if (cell.find_first_of(",\"\n") == std::string::npos) {
+            return cell;
+        }
+
+        std::string escaped = "\"";
+        for (char c : cell) {
+            if (c == '"') {
+                escaped += "\"\""; // Экранируем кавычку, удваивая ее
+            } else {
+                escaped += c;
+            }
+        }
+        escaped += "\"";
+        return escaped;
+    }
+}
+
+std::string DatasetService::saveDatasetToFile(const std::string& datasetId, const std::string& newName) {
+    std::shared_ptr<const Dataset> dataset;
+    {
+        // Блокируем только на время получения указателя на датасет
+        std::shared_lock lock(_mutex);
+        auto it = _datasets.find(datasetId);
+        if (it == _datasets.end()) {
+            throw std::runtime_error("Dataset with ID " + datasetId + " not found.");
+        }
+        dataset = it->second;
+    } // мьютекс освобождается здесь, до начала работы с файловой системой
+
+    // Очищаем имя файла и создаем путь
+    fs::path sanitizedName(newName);
+    std::string finalName = sanitizedName.stem().string() + ".csv";
+    fs::path filePath = fs::path(FRAMEWORK_CONSTANTS::datasetsDirectory) / finalName;
+
+    // Убеждаемся, что директория существует
+    fs::create_directories(filePath.parent_path());
+
+    std::ofstream outFile(filePath);
+    if (!outFile.is_open()) {
+        throw std::runtime_error("Could not open file for writing: " + filePath.string());
+    }
+
+    // Записываем заголовки
+    for (size_t i = 0; i < dataset->headers.size(); ++i) {
+        outFile << escapeCsvCell(dataset->headers[i]);
+        if (i < dataset->headers.size() - 1) {
+            outFile << ",";
+        }
+    }
+    outFile << "\n";
+
+    // Записываем данные
+    for (const auto& row : dataset->rawData) {
+        for (size_t i = 0; i < row.size(); ++i) {
+            outFile << escapeCsvCell(row[i]);
+            if (i < row.size() - 1) {
+                outFile << ",";
+            }
+        }
+        outFile << "\n";
+    }
+
+    return filePath.string();
 }

@@ -60,3 +60,43 @@
     text-align: center;
     padding-top: 5rem;
 }
+
+.saveAsPrompt {
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+    margin-top: 1rem;
+    padding: 1rem;
+    border: 1px solid var(--glass-border-color);
+    border-radius: 8px;
+    background: var(--glass-background);
+    backdrop-filter: blur(var(--glass-blur));
+    -webkit-backdrop-filter: blur(var(--glass-blur));
+}
+
+.saveAsPrompt label {
+    font-size: 0.9rem;
+    color: var(--color-text);
+}
+
+.saveAsPrompt input {
+    padding: 0.6em 1em;
+    font-size: 0.9em;
+    border-radius: 8px;
+    border: 1px solid var(--glass-border-color);
+    background: rgba(0,0,0,0.2);
+    color: var(--color-text);
+    outline: none;
+}
+
+.saveAsPrompt input:focus {
+    border-color: var(--color-glow-teal);
+    box-shadow: 0 0 5px var(--color-glow-teal);
+}
+
+.saveAsPromptButtons {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+}

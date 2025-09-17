@@ -9,7 +9,7 @@ import { Loader } from './components/ui/Loader';
 
 function App() {
     const { t, setLocale, locale } = useLocalization();
-    const { available, loaded, viewingData, isLoading, error, handleLoad, handleUnload, handleView, handleRemoveColumn } = useDatasets();
+    const { available, loaded, viewingData, isLoading, error, handleLoad, handleUnload, handleView, handleRemoveColumn, handleSaveAs } = useDatasets();
 
     return (
         <div className={styles.appContainer}>
@@ -36,7 +36,12 @@ function App() {
                 </div>
                 <div className={`${styles.gridItem} ${styles.viewer}`}>
                     <Card title="Dataset Viewer">
-                        <DatasetViewer data={viewingData} onView={handleView} onRemoveColumn={handleRemoveColumn} />
+                        <DatasetViewer
+                            data={viewingData}
+                            onView={handleView}
+                            onRemoveColumn={handleRemoveColumn}
+                            onSaveAs={handleSaveAs} // Передаем новую функцию
+                        />
                     </Card>
                 </div>
             </main>

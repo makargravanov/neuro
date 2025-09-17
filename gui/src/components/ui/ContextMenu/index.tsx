@@ -1,4 +1,3 @@
-import { motion } from 'framer-motion';
 import { useEffect, useRef, type ReactNode } from 'react';
 import styles from './ContextMenu.module.css';
 import * as React from "react";

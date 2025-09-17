@@ -84,13 +84,33 @@ public:
     /**
      * @brief Регистрирует новый, трансформированный датасет в памяти.
      * @param dataset Указатель на новый объект датасета.
-     * @param sourceName Имя исходного датасета для генерации нового имени.
+     * @param datasetName Имя, которое будет присвоено новому датасету.
      * @return ID нового зарегистрированного датасета.
      */
-    std::string registerTransformedDataset(std::shared_ptr<Dataset> dataset, const std::string& sourceName);
+    std::string registerTransformedDataset(std::shared_ptr<Dataset> dataset, const std::string& datasetName);
+
+    /**
+     * @brief Создает копию существующего датасета и регистрирует её под новым именем.
+     * @param sourceId ID исходного датасета, который нужно скопировать.
+     * @param newName Новое имя для скопированного датасета.
+     * @return ID нового зарегистрированного датасета.
+     * @throws std::runtime_error если исходный датасет не найден.
+     */
+    std::string copyAndRegisterDataset(const std::string& sourceId, const std::string& newName);
+
+    /**
+     * @brief Сохраняет данные датасета из памяти в новый CSV файл.
+     * @param datasetId ID датасета, который нужно сохранить.
+     * @param newName Имя для нового файла (без расширения).
+     * @return Полный путь к созданному файлу.
+     * @throws std::runtime_error если датасет не найден или не удалось записать файл.
+     */
+    std::string saveDatasetToFile(const std::string& datasetId, const std::string& newName);
 
 private:
     static std::pair<std::vector<std::string>, std::vector<std::vector<std::string>>> parseCsv(const std::string& filePath);
+
+    std::string registerTransformedDataset_locked(std::shared_ptr<Dataset> dataset, const std::string& datasetName);
 
     std::unordered_map<std::string, std::shared_ptr<Dataset>> _datasets{};
 

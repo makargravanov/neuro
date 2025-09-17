@@ -31,31 +31,40 @@ export const useDatasets = () => {
     }, [fetchAll]);
 
     const handleLoad = async (filePath: string) => {
+        setIsLoading(true);
+        setError(null);
         try {
             await api.loadDataset(filePath);
             await fetchAll(); // Обновляем списки
-        } catch (e) {
-            setError(`Failed to load ${filePath}.`);
+        } catch (e: any) {
+            setError(`Failed to load ${filePath}. ${e.response?.data?.error || e.message}`);
+        } finally {
+            setIsLoading(false);
         }
     };
 
     const handleUnload = async (id: string) => {
+        setIsLoading(true);
+        setError(null);
         try {
             await api.unloadDataset(id);
             if (viewingData?.id === id) setViewingData(null); // Сбрасываем просмотр, если выгрузили текущий
             await fetchAll();
-        } catch (e) {
-            setError(`Failed to unload dataset.`);
+        } catch (e: any) {
+            setError(`Failed to unload dataset. ${e.response?.data?.error || e.message}`);
+        } finally {
+            setIsLoading(false);
         }
     };
 
     const handleView = async (id: string, page = 1, pageSize = 20) => {
         setIsLoading(true);
+        setError(null);
         try {
             const res = await api.getDatasetPage(id, page, pageSize);
             setViewingData(res.data);
-        } catch (e) {
-            setError(`Failed to view dataset.`);
+        } catch (e: any) {
+            setError(`Failed to view dataset. ${e.response?.data?.error || e.message}`);
         } finally {
             setIsLoading(false);
         }
@@ -67,13 +76,29 @@ export const useDatasets = () => {
         try {
             const res = await api.removeColumn(datasetId, columnName);
             await fetchAll();
+            // После удаления колонки, просматриваем новый трансформированный датасет
             await handleView(res.data.newDatasetId);
-        } catch (e) {
-            setError(`Failed to remove column '${columnName}'.`);
+        } catch (e: any) {
+            setError(`Failed to remove column '${columnName}'. ${e.response?.data?.error || e.message}`);
         } finally {
             setIsLoading(false);
         }
     };
 
-    return { available, loaded, viewingData, isLoading, error, handleLoad, handleUnload, handleView, handleRemoveColumn};
+    const handleSaveAs = async (datasetId: string, newName: string) => {
+        setIsLoading(true);
+        setError(null);
+        try {
+            const res = await api.saveDatasetAs(datasetId, newName);
+            await fetchAll();
+            // Опционально: сразу просмотреть новый сохраненный датасет
+            await handleView(res.data.newDatasetId);
+        } catch (e: any) {
+            setError(`Failed to save dataset as '${newName}'. ${e.response?.data?.error || e.message}`);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    return { available, loaded, viewingData, isLoading, error, handleLoad, handleUnload, handleView, handleRemoveColumn, handleSaveAs };
 };

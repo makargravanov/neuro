@@ -11,6 +11,7 @@ interface Props {
     data: PaginatedData | null;
     onView: (id: string, page: number, pageSize: number) => void;
     onRemoveColumn: (datasetId: string, columnName: string) => void;
+    onSaveAs: (datasetId: string, newName: string) => void; // Новое свойство
 }
 
 interface MenuState {
@@ -19,9 +20,11 @@ interface MenuState {
     columnName: string;
 }
 
-export const DatasetViewer = ({data, onView, onRemoveColumn}: Props) => {
+export const DatasetViewer = ({data, onView, onRemoveColumn, onSaveAs}: Props) => {
     const {t} = useLocalization();
     const [menu, setMenu] = useState<MenuState | null>(null);
+    const [isSaveAsPromptVisible, setIsSaveAsPromptVisible] = useState(false);
+    const [newDatasetName, setNewDatasetName] = useState('');
 
     if (!data) {
         return <p className={styles.placeholder}>{t('noDataSelected')}</p>;
@@ -44,6 +47,24 @@ export const DatasetViewer = ({data, onView, onRemoveColumn}: Props) => {
             onRemoveColumn(data.id, menu.columnName);
             handleCloseMenu();
         }
+    };
+
+    const handleSaveAsClick = () => {
+        setIsSaveAsPromptVisible(true);
+        setNewDatasetName(`${data.name}_copy`); // Предлагаем имя по умолчанию
+    };
+
+    const handleSaveAsConfirm = () => {
+        if (newDatasetName.trim() && data) {
+            onSaveAs(data.id, newDatasetName.trim());
+            setIsSaveAsPromptVisible(false);
+            setNewDatasetName('');
+        }
+    };
+
+    const handleSaveAsCancel = () => {
+        setIsSaveAsPromptVisible(false);
+        setNewDatasetName('');
     };
 
     return (
@@ -76,10 +97,35 @@ export const DatasetViewer = ({data, onView, onRemoveColumn}: Props) => {
                 </table>
             </div>
             <div className={styles.pagination}>
-                <Button onClick={handlePrev} disabled={data.page <= 1}>&lt; Prev</Button>
-                <span>Page {data.page} of {data.totalPages}</span>
-                <Button onClick={handleNext} disabled={data.page >= data.totalPages}>Next &gt;</Button>
+                <Button onClick={handlePrev} disabled={data.page <= 1}>&lt; {t('prev')}</Button>
+                <span>{t('page')} {data.page} {t('of')} {data.totalPages}</span>
+                <Button onClick={handleNext} disabled={data.page >= data.totalPages}>{t('next')} &gt;</Button>
+                <Button onClick={handleSaveAsClick} disabled={isSaveAsPromptVisible}>{t('saveAs')}</Button> {/* Кнопка "Сохранить как..." */}
             </div>
+
+            <AnimatePresence>
+                {isSaveAsPromptVisible && (
+                    <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 10 }}
+                        className={styles.saveAsPrompt}
+                    >
+                        <label htmlFor="newDatasetName">{t('newDatasetNamePrompt')}:</label>
+                        <input
+                            id="newDatasetName"
+                            type="text"
+                            value={newDatasetName}
+                            onChange={(e) => setNewDatasetName(e.target.value)}
+                            placeholder={t('enterNewDatasetName')}
+                        />
+                        <div className={styles.saveAsPromptButtons}>
+                            <Button onClick={handleSaveAsCancel} variant="danger">{t('cancel')}</Button>
+                            <Button onClick={handleSaveAsConfirm} disabled={!newDatasetName.trim()}>{t('save')}</Button>
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
             
             <AnimatePresence>
                 {menu && (

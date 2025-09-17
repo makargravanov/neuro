@@ -47,12 +47,14 @@ private:
             auto transformedDataset = _transformationService->removeColumn(sourceDataset, columnName);
 
             // регистрируем результат как новый датасет
-            std::string newId = _datasetService->registerTransformedDataset(transformedDataset, sourceDataset->name);
+            // Имя нового датасета по умолчанию будет таким же, как у исходного, с пометкой о трансформации
+            std::string newDatasetName = sourceDataset->name + " (transformed)";
+            std::string newId = _datasetService->registerTransformedDataset(transformedDataset, newDatasetName);
 
             // возвращаем ответ с информацией о новом датасете
             json responseBody = {
                 {"newDatasetId", newId},
-                {"newDatasetName", transformedDataset->name}
+                {"newDatasetName", newDatasetName}
             };
             return createJsonResponse(http::status::ok, responseBody);
 

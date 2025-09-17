@@ -13,34 +13,55 @@ interface ContextMenuProps {
 export const ContextMenu = ({ x, y, onClose, children }: ContextMenuProps) => {
     const menuRef = useRef<HTMLDivElement>(null);
 
-    // Закрываем меню при клике вне его
+    // Автокоррекция координат, чтобы меню не выходило за пределы окна
+    const [menuPos, setMenuPos] = React.useState({ x, y });
+    const menuWidth = 200; // примерная ширина меню (px)
+    const menuHeight = 80; // примерная высота меню (px)
+
+    React.useEffect(() => {
+        let newX = x;
+        let newY = y;
+        if (typeof window !== 'undefined') {
+            if (x + menuWidth > window.innerWidth) {
+                newX = window.innerWidth - menuWidth - 10;
+            }
+            if (y + menuHeight > window.innerHeight) {
+                newY = window.innerHeight - menuHeight - 10;
+            }
+        }
+        setMenuPos({ x: newX, y: newY });
+    }, [x, y]);
+
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
-            // Игнорируем все клики, кроме основного (левая кнопка мыши)
             if (event.button !== 0) return;
-
             if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+                console.log('[Debug] ContextMenu: Закрытие по клику вне меню', event);
                 onClose();
             }
         };
-        document.addEventListener('mousedown', handleClickOutside);
+        const timeout = setTimeout(() => {
+            document.addEventListener('mousedown', handleClickOutside);
+        }, 0);
         return () => {
+            clearTimeout(timeout);
             document.removeEventListener('mousedown', handleClickOutside);
         };
     }, [onClose]);
 
+    console.log('[Debug] ContextMenu menuPos', menuPos);
     return (
-        <motion.div
+        <div
             ref={menuRef}
             className={styles.contextMenu}
-            style={{ top: y, left: x }}
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.95 }}
-            transition={{ duration: 0.1, ease: "easeOut" }}
+            style={{
+                top: 100,
+                left: 100,
+                position: 'fixed'
+            }}
         >
             {children}
-        </motion.div>
+        </div>
     );
 };
 

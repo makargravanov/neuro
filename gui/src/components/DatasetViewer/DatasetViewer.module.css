@@ -1,0 +1,53 @@
+/* src/components/DatasetViewer/DatasetViewer.module.css */
+.viewerContainer {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    height: 400px;
+}
+
+.tableWrapper {
+    flex-grow: 1;
+    overflow: auto;
+    border: 1px solid var(--glass-border-color);
+    border-radius: 8px;
+}
+
+.table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.table th, .table td {
+    padding: 0.75rem 1rem;
+    text-align: left;
+    border-bottom: 1px solid var(--glass-border-color);
+    font-size: 0.9rem;
+    white-space: nowrap;
+}
+
+.table th {
+    background: rgba(0, 191, 255, 0.05);
+    color: var(--color-glow-teal);
+    position: sticky;
+    top: 0;
+    backdrop-filter: blur(5px);
+}
+
+.table td {
+    color: var(--color-text-dim);
+}
+
+.pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 1rem;
+}
+
+.placeholder {
+    color: var(--color-text-dim);
+    font-style: italic;
+    text-align: center;
+    padding-top: 5rem;
+}

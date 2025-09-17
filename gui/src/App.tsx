@@ -1,35 +1,47 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import styles from './App.module.css';
+import { useLocalization } from './context/LocalizationContext';
+import { useDatasets } from './hooks/useDatasets';
+import { Card } from './components/ui/Card';
+import { AvailableDatasets } from './components/AvailableDatasets';
+import { LoadedDatasets } from './components/LoadedDatasets';
+import { DatasetViewer } from './components/DatasetViewer';
+import { Loader } from './components/ui/Loader';
 
 function App() {
-  const [count, setCount] = useState(0)
+    const { t, setLocale, locale } = useLocalization();
+    const { available, loaded, viewingData, isLoading, error, handleLoad, handleUnload, handleView } = useDatasets();
 
-  return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
+    return (
+        <div className={styles.appContainer}>
+            <header className={styles.header}>
+                <div className={styles.langSwitcher}>
+                    <button onClick={() => setLocale('en')} disabled={locale === 'en'}>EN</button>
+                    <button onClick={() => setLocale('ru')} disabled={locale === 'ru'}>RU</button>
+                </div>
+            </header>
+
+            {isLoading && <Loader />}
+            {error && <div className={styles.error}>{error}</div>}
+
+            <main className={styles.bentoGrid}>
+                <div className={styles.gridItem}>
+                    <Card title={t('availableDatasets')}>
+                        <AvailableDatasets files={available} onLoad={handleLoad} />
+                    </Card>
+                </div>
+                <div className={styles.gridItem}>
+                    <Card title={t('loadedDatasets')}>
+                        <LoadedDatasets datasets={loaded} onView={handleView} onUnload={handleUnload} />
+                    </Card>
+                </div>
+                <div className={`${styles.gridItem} ${styles.viewer}`}>
+                    <Card title="Dataset Viewer">
+                        <DatasetViewer data={viewingData} onView={handleView} />
+                    </Card>
+                </div>
+            </main>
+        </div>
+    );
 }
 
-export default App
+export default App;

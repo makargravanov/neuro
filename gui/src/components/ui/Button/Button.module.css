@@ -1,0 +1,56 @@
+/* src/components/ui/Button/Button.module.css */
+.button {
+    padding: 0.6em 1.2em;
+    font-size: 0.9em;
+    font-weight: 500;
+    font-family: inherit;
+    cursor: pointer;
+    border-radius: 8px;
+    border: 1px solid var(--glass-border-color);
+    background: var(--glass-background);
+    color: var(--color-text);
+    backdrop-filter: blur(5px);
+    -webkit-backdrop-filter: blur(5px);
+
+    /* Для плавности анимации */
+    will-change: transform;
+
+    /* Градиент для обводки */
+    position: relative;
+    overflow: hidden;
+    z-index: 1;
+}
+
+.button::before {
+    content: '';
+    position: absolute;
+    top: 0; right: 0; bottom: 0; left: 0;
+    z-index: -1;
+    margin: -1px; /* Толщина обводки */
+    border-radius: inherit; /* Скругляем как родителя */
+    background: var(--gradient-primary);
+    transition: opacity 0.3s ease;
+    opacity: 0.5;
+}
+
+.button:hover::before {
+    opacity: 1;
+}
+
+.button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.danger::before {
+    /*
+      Было: background: linear-gradient(90deg, #e11d48, #9f1239);
+      Стало: Более яркий, "неоновый" малиновый градиент
+    */
+    background: linear-gradient(90deg, #87173e, #9e0a3d);
+}
+
+
+.button.danger:hover::before {
+    box-shadow: 0 0 8px #8a001f;
+}

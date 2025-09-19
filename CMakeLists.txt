@@ -1,4 +1,5 @@
 cmake_minimum_required(VERSION 4.0)
+set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
 
 set(CMAKE_EXPERIMENTAL_CXX_IMPORT_STD "d0edc3af-4c50-42ea-a356-e2862fe7a444")
 set(CMAKE_CXX_SCAN_FOR_MODULES ON)
@@ -9,6 +10,8 @@ set(CMAKE_CXX_EXTENSIONS ON)
 project(neuro LANGUAGES CXX)
 
 include(FetchContent)
+
+find_package(OpenCL REQUIRED)
 
 set(BOOST_ENABLE_CMAKE ON)
 
@@ -39,6 +42,7 @@ add_compile_options(-fmodules-ts)
 file(GLOB_RECURSE HPP_DIR "src/*.hpp")
 file(GLOB_RECURSE CPP_DIR "src/*.cpp")
 file(GLOB_RECURSE MODULES_DIR "src/*.cppm")
+file(GLOB_RECURSE KERNELS_DIR "src/util/model/model-parts/ocl_kernels/*.cl")
 
 add_executable(main
         main.cpp
@@ -54,6 +58,12 @@ target_sources(main PUBLIC
 
 target_compile_options(main PRIVATE -fmodules-ts)
 
+target_include_directories(main PRIVATE
+        ${opencl-headers_SOURCE_DIR}/include
+        ${opencl-clhpp_SOURCE_DIR}/include
+)
+
+
 target_link_libraries(main PRIVATE
         stdc++exp
         Boost::system
@@ -63,6 +73,7 @@ target_link_libraries(main PRIVATE
         Boost::uuid
         eigen
         nlohmann_json
+        OpenCL::OpenCL
 )
 
 if(WIN32)

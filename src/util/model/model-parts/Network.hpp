@@ -13,15 +13,16 @@
 #include "../../logging.hpp"
 
 
-
-using AnyLayer = std::variant<
-    Layer<SigmoidPolicy>,
-    Layer<LinearPolicy>,
-    Layer<ReLUPolicy>,
-    Layer<SoftmaxPolicy>
->;
-
+template<typename ComputePolicy>
 class Network {
+
+    using AnyLayer = std::variant<
+        Layer<SigmoidPolicy, ComputePolicy>,
+        Layer<LinearPolicy, ComputePolicy>,
+        Layer<ReLUPolicy, ComputePolicy>,
+        Layer<SoftmaxPolicy, ComputePolicy>
+    >;
+
     std::vector<AnyLayer> _layers{};
 public:
     explicit Network(u32 inputSize, const std::vector<std::pair<u32, PolicyType>>& layersConfig) {
@@ -35,13 +36,13 @@ public:
             const PolicyType& activation = config.second;
 
             if (activation == PolicyType::RELU) {
-                _layers.emplace_back(Layer<ReLUPolicy>(layerSize, lastLayerSize));
+                _layers.emplace_back(Layer<ReLUPolicy, ComputePolicy>(layerSize, lastLayerSize));
             } else if (activation == PolicyType::SIGMOID) {
-                _layers.emplace_back(Layer<SigmoidPolicy>(layerSize, lastLayerSize));
+                _layers.emplace_back(Layer<SigmoidPolicy, ComputePolicy>(layerSize, lastLayerSize));
             } else if (activation == PolicyType::LINEAR) {
-                _layers.emplace_back(Layer<LinearPolicy>(layerSize, lastLayerSize));
+                _layers.emplace_back(Layer<LinearPolicy, ComputePolicy>(layerSize, lastLayerSize));
             } else if (activation == PolicyType::SOFTMAX) {
-                _layers.emplace_back(Layer<SoftmaxPolicy>(layerSize, lastLayerSize));
+                _layers.emplace_back(Layer<SoftmaxPolicy, ComputePolicy>(layerSize, lastLayerSize));
             } else {
                 throw std::invalid_argument("Unknown activation function");
             }
@@ -71,8 +72,8 @@ public:
 
         for (u32 epoch = 0; epoch < epochs; ++epoch) {
             std::random_device rd;
-            std::mt19937 g(rd());
-            std::shuffle(indices.begin(), indices.end(), g);
+            std::mt19937 shuffling_g(rd());
+            std::ranges::shuffle(indices, shuffling_g);
 
             f32 totalError = 0;
             for (u32 i = 0; i < numSamples; i += batchSize) {
@@ -91,47 +92,46 @@ public:
                     return policy.calculate(actual, expectedBatch) * currentBatchSize;
                 }, lossFunction);
 
+                // --- Backpropagation ---
                 Output delta;
                 std::visit([&](const auto& lastLayer) {
                     using LastLayerType = std::decay_t<decltype(lastLayer)>;
                     bool isSoftmaxWithCCE = std::holds_alternative<CategoricalCrossEntropyPolicy>(lossFunction) &&
-                                            std::is_same_v<LastLayerType, Layer<SoftmaxPolicy>>;
+                                            std::is_same_v<LastLayerType, Layer<SoftmaxPolicy, ComputePolicy>>;
 
                     Output loss_derivative = std::visit([&](const auto& policy) {
                         return policy.derivative(actual, expectedBatch);
                     }, lossFunction);
 
                     if (isSoftmaxWithCCE) {
-                        delta = loss_derivative;
+                        delta = loss_derivative; // Упрощенная производная
                     } else {
-                        delta = loss_derivative.cwiseProduct(lastLayer.activationDerivative());
+                        // Используем политику для поэлементного умножения
+                        delta = ComputePolicy::elementwiseProduct(loss_derivative, lastLayer.activationDerivative());
                     }
                 }, _layers.back());
 
                 for (i64 j = _layers.size() - 1; j >= 0; --j) {
-                    // 1. Определяем вход для текущего слоя j (это выход слоя j-1)
                     const auto& prevLayerOutput = (j > 0) ?
                         std::visit([](auto& l){ return l.getLastOutput(); }, _layers[j-1]) :
                         inputBatch;
 
-                    // 2. Вычисляем градиенты для весов и смещений слоя j, используя текущий delta
-                    WeightMatrix weightGrad = delta * prevLayerOutput.transpose();
-                    BiasVector biasGrad = delta.rowwise().mean();
+                    // Вычисляем градиенты через политику
+                    WeightMatrix weightGrad = ComputePolicy::calculateWeightGradient(delta, prevLayerOutput);
+                    BiasVector biasGrad = ComputePolicy::calculateBiasGradient(delta);
 
-                    // 3. Вычисляем delta для *следующей* итерации (для слоя j-1),
-                    //    используя веса текущего слоя j.
                     if (j > 0) {
+                        // Вычисляем delta для предыдущего слоя через политику
                         delta = std::visit([&](const auto& currentLayer) -> Output {
-                            return (currentLayer.getWeights().transpose() * delta).cwiseProduct(
-                                std::visit([](auto& prevLayer){ return prevLayer.activationDerivative(); }, _layers[j-1])
-                            );
+                            auto prevActivationDerivative = std::visit([](auto& prevLayer){ return prevLayer.activationDerivative(); }, _layers[j-1]);
+                            return ComputePolicy::calculateNextDelta(currentLayer.getWeights(), delta, prevActivationDerivative);
                         }, _layers[j]);
                     }
 
-                    // 4. Обновляем веса и смещения для слоя j
+                    // Обновляем веса и смещения через политику
                     std::visit([&](auto& layer) {
-                        layer.getWeights() -= learningRate * weightGrad;
-                        layer.getBiases() -= learningRate * biasGrad;
+                        ComputePolicy::updateWeights(layer.getWeights(), learningRate, weightGrad);
+                        ComputePolicy::updateBiases(layer.getBiases(), learningRate, biasGrad);
                     }, _layers[j]);
                 }
             }
@@ -141,5 +141,6 @@ public:
         }
     }
 };
+
 
 #endif

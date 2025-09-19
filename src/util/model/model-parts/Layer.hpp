@@ -4,7 +4,7 @@
 
 #include "../../types/eigen_types.hpp"
 
-template<typename ActivationPolicy>
+template<typename ActivationPolicy, typename ComputePolicy>
 class Layer {
     WeightMatrix _weights;
     BiasVector _biases;
@@ -19,23 +19,19 @@ public:
         _biases = BiasVector::Random(numberOfNeurons);
     };
 
+    /**
+     * @brief Выполняет прямое распространение через слой.
+     * @param input Входные данные (выход предыдущего слоя).
+     * @return Выходные данные этого слоя.
+     */
     Output activate(const Input& input) {
         _lastInput = input;
-        // z = W * X + b, где X - батч входов (каждый столбец - пример)
-        // .colwise() добавляет вектор смещений к каждому столбцу матрицы
-        Input z = (_weights * input).colwise() + _biases;
 
-        if constexpr (std::is_same_v<ActivationPolicy, SoftmaxPolicy>) {
-            // Применяем Softmax к каждому столбцу (примеру) в батче
-            // Вычитаем максимум в каждом столбце для численной стабильности
-            Eigen::RowVectorXf maxCoeffs = z.colwise().maxCoeff();
-            Output expZ = (z.rowwise() - maxCoeffs).array().exp();
-            // Нормализуем каждый столбец на его сумму
-            _lastOutput = expZ.array().rowwise() / expZ.colwise().sum().array();
-        } else {
-            // Поэлементная активация для остальных политик
-            _lastOutput = z.unaryExpr(&ActivationPolicy::activate);
-        }
+        // 1. Линейное преобразование с использованием политики вычислений
+        Input z = ComputePolicy::forwardPass(_weights, input, _biases);
+
+        // 2. Применение функции активации через политику вычислений
+        _lastOutput = ComputePolicy::template activate<ActivationPolicy>(z);
 
         return _lastOutput;
     }
@@ -49,10 +45,13 @@ public:
     [[nodiscard]] const Output& getLastOutput() const { return _lastOutput; }
     [[nodiscard]] const Input& getLastInput() const { return _lastInput; }
 
+    /**
+     * @brief Вычисляет производную функции активации для последнего выхода.
+     * @return Матрица со значениями производных.
+     */
     [[nodiscard]] Output activationDerivative() const {
-        return _lastOutput.unaryExpr(&ActivationPolicy::derivative);
+        return ComputePolicy::template activationDerivative<ActivationPolicy>(_lastOutput);
     }
 };
-
 
 #endif

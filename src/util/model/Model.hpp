@@ -11,8 +11,9 @@
 #include "../logging.hpp"
 #include "model-parts/Metrics.hpp"
 
+template<typename ActiveComputePolicy>
 class Model {
-    std::unique_ptr<Network> network = nullptr;
+    std::unique_ptr<Network<ActiveComputePolicy>> network = nullptr;
     std::vector<Eigen::VectorXf> trainingInputs{};
     std::vector<Eigen::VectorXf> trainingOutputs{};
     std::vector<Eigen::VectorXf> originalInputs{};
@@ -67,7 +68,8 @@ public:
     Model& withNetwork(const std::vector<std::pair<u32, PolicyType>>& layersConfig) {
         if (inputSize == 0) throw std::runtime_error("Data must be loaded before configuring the network.");
         Log::Logger().info("--- 3. Configuring network architecture ---");
-        network = std::make_unique<Network>(inputSize, layersConfig);
+        // Создаем экземпляр сети с активной политикой вычислений
+        network = std::make_unique<Network<ActiveComputePolicy>>(inputSize, layersConfig);
         Log::Logger().info("Network created successfully.\n");
         return *this;
     }

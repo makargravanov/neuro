@@ -3,6 +3,7 @@
 #include "src/util/model/Model.hpp"
 #include "src/util/model/model-parts/Network.hpp"
 #include "src/util/logging.hpp"
+#include "src/util/model/model-parts/ComputePolicies.h"
 #include "src/web-server/Starter.hpp"
 
 import EnableColors;
@@ -17,7 +18,7 @@ void printVector(const Eigen::VectorXf& vec) {
 
 void irisExample() {
     try {
-        Model iris;
+        Model<CpuEigenPolicy> iris;
 
         iris.fromCSV("datasets/iris.csv", {0, 1, 2, 3}, 4)
             .withNetwork({
@@ -45,7 +46,7 @@ void irisExample() {
 
 void bjuExample() {
     try {
-        Model regressor;
+        Model<CpuEigenPolicy> regressor;
 
         regressor.fromCSV("bju_calories_regression_with_names.csv", {1, 2, 3}, 4)
             .normalize(true)
@@ -69,14 +70,14 @@ void runRideStatusPrediction() {
     Log::Logger().message("--- Starting Ride Booking Status Prediction Example ---");
 
     try {
-        Model rideModel;
-        std::vector<u32> feature_indices(16);
-        std::iota(feature_indices.begin(), feature_indices.end(), 0);
+        Model<CpuEigenPolicy> rideModel;
+        std::vector<u32> featureIndices(16);
+        std::iota(featureIndices.begin(), featureIndices.end(), 0);
 
-        constexpr u32 target_index = 16;
+        constexpr u32 targetIndex = 16;
 
         rideModel
-            .fromCSV("processed_rides.csv", feature_indices, target_index)
+            .fromCSV("processed_rides.csv", featureIndices, targetIndex)
             .normalize(true)
             .withNetwork({
                 {24, PolicyType::RELU},

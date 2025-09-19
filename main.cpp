@@ -83,7 +83,7 @@ void runRideStatusPrediction() {
                 {12, PolicyType::RELU},
                 {4,  PolicyType::SOFTMAX}
             })
-            .train(500, 0.01f)
+            .train(200, 0.0001f)
             .evaluate();
     } catch (const std::exception& e) {
         Log::Logger().error("An error occurred during the prediction task: {}", e.what());

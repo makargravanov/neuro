@@ -30,8 +30,8 @@ struct CategoricalCrossEntropyPolicy {
     static f32 calculate(const Output& actual, const Output& expected) {
         // Добавляем эпсилон для численной стабильности, чтобы избежать log(0)
         constexpr f32 epsilon = 1e-9f;
-        Output clipped_actual = actual.cwiseMax(epsilon).cwiseMin(1.0f - epsilon);
-        return -(expected.array() * clipped_actual.array().log()).sum();
+        Output clippedActual = actual.cwiseMax(epsilon).cwiseMin(1.0f - epsilon);
+        return -(expected.array() * clippedActual.array().log()).sum();
     }
 
     static Output derivative(const Output& actual, const Output& expected) {

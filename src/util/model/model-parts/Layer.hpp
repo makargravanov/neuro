@@ -30,8 +30,8 @@ public:
             // Вычитание максимального элемента из вектора z не меняет результат,
             // но предотвращает переполнение (overflow) при вычислении exp() для больших чисел.
             f32 maxCoeff = z.maxCoeff();
-            Output exp_z = (z.array() - maxCoeff).exp();
-            _lastOutput = exp_z / exp_z.sum();
+            Output expZ = (z.array() - maxCoeff).exp();
+            _lastOutput = expZ / expZ.sum();
         } else {
             // Стандартная поэлементная активация для всех остальных политик
             _lastOutput = z.unaryExpr(&ActivationPolicy::activate);

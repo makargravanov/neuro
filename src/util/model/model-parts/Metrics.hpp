@@ -13,7 +13,7 @@ struct ClassificationMetrics {
     f32 accuracy = 0.0f;
     u32 correctPredictions = 0;
     u32 totalSamples = 0;
-    // в будущем здесь можно добавить матрицу ошибок, точность, полноту и F1-меру
+    // TODO: добавить матрицу ошибок, точность, полноту и F1-меру
 };
 
 struct RegressionMetrics {
@@ -63,7 +63,7 @@ public:
         f32 totalAbsoluteError = 0.0f;
         f32 totalSquaredError = 0.0f;
         f32 totalPercentageError = 0.0f;
-        u32 mape_count = 0;
+        u32 mapeCount = 0;
 
         for (u32 i = 0; i < totalSamples; ++i) {
             const f32 predictedValue = predictions[i](0);
@@ -75,7 +75,7 @@ public:
 
             if (std::abs(expectedValue) > 1e-9) {
                 totalPercentageError += (std::abs(error) / std::abs(expectedValue)) * 100.0f;
-                mape_count++;
+                mapeCount++;
             }
         }
 
@@ -83,8 +83,8 @@ public:
             metrics.meanAbsoluteError = totalAbsoluteError / totalSamples;
             metrics.rootMeanSquaredError = std::sqrt(totalSquaredError / totalSamples);
         }
-        if (mape_count > 0) {
-            metrics.meanAbsolutePercentageError = totalPercentageError / mape_count;
+        if (mapeCount > 0) {
+            metrics.meanAbsolutePercentageError = totalPercentageError / mapeCount;
         }
         return metrics;
     }

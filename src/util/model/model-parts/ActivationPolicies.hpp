@@ -9,7 +9,7 @@
 enum class PolicyType {
     SIGMOID,
     LINEAR,
-    RELU
+    RELU,
     SOFTMAX // Добавляем новый тип
 };
 

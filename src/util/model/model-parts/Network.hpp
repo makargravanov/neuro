@@ -76,28 +76,24 @@ public:
                     return policy.calculate(actual, expected);
                 }, lossFunction);
 
-                // backward Pass
-                // вычисляем производную функции потерь
-                Output loss_derivative = std::visit([&](const auto& policy) {
-                    return policy.derivative(actual, expected);
-                }, lossFunction);
+                // backward pass
+                Output delta;
 
-                // вычисляем начальную дельту для выходного слоя
-                Output delta = loss_derivative.cwiseProduct(
-                    std::visit([](auto& layer){ return layer.activationDerivative(); }, _layers.back())
-                );
+                std::visit([&](const auto& lastLayer) {
+                    using LastLayerType = std::decay_t<decltype(lastLayer)>;
+                    bool isSoftmaxWithCCE = std::holds_alternative<CategoricalCrossEntropyPolicy>(lossFunction) &&
+                                            std::is_same_v<LastLayerType, Layer<SoftmaxPolicy>>;
 
-                // обновляем веса выходного слоя (логика та же)
-                std::visit([&](auto& layer){
-                    auto& weights = layer.getWeights();
-                    auto& biases = layer.getBiases();
-                    const auto& prevLayerOutput = _layers.size() > 1 ?
-                        std::visit([](auto& l){ return l.getLastOutput(); }, _layers[_layers.size()-2]) :
-                        input;
-
-                    weights -= learningRate * (delta * prevLayerOutput.transpose());
-                    biases -= learningRate * delta;
+                    if (isSoftmaxWithCCE) {
+                        delta = actual - expected;
+                    } else {
+                        Output loss_derivative = std::visit([&](const auto& policy) {
+                            return policy.derivative(actual, expected);
+                        }, lossFunction);
+                        delta = loss_derivative.cwiseProduct(lastLayer.activationDerivative());
+                    }
                 }, _layers.back());
+
 
                 // распространяем ошибку на скрытые слои (логика та же)
                 for (i64 j = _layers.size() - 2; j >= 0; --j) {

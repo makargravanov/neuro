@@ -19,12 +19,12 @@ void irisExample() {
     try {
         Model iris;
 
-        iris.fromCSV("iris.csv", {0, 1, 2, 3}, 4)
+        iris.fromCSV("datasets/iris.csv", {0, 1, 2, 3}, 4)
             .withNetwork({
                 {8, PolicyType::RELU},
                 {3, PolicyType::SIGMOID}
             })
-            .train(500, 0.1f, 10)
+            .train(1500, 0.1f, 10)
             .evaluate();
 
         std::println(std::cout, "--- Prediction Example ---");
@@ -83,7 +83,7 @@ void runRideStatusPrediction() {
                 {12, PolicyType::RELU},
                 {4,  PolicyType::SOFTMAX}
             })
-            .train(1000, 0.002f, 128)
+            .train(400, 0.002f, 128)
             .evaluate();
     } catch (const std::exception& e) {
         Log::Logger().error("An error occurred during the prediction task: {}", e.what());
@@ -92,7 +92,7 @@ void runRideStatusPrediction() {
 
 i32 main() {
     Log::Platform::enableColors();
-    runRideStatusPrediction();
+    irisExample();
 
     //Starter::run(8080, 4);
     return 0;

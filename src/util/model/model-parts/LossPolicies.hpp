@@ -21,7 +21,7 @@ struct MeanSquaredErrorPolicy {
 
     static Output derivative(const Output& actual, const Output& expected) {
         // Производная средней MSE по выходу сети (dE/da)
-        return (actual - expected) / actual.cols();
+        return (actual - expected) /  (2 * actual.cols());
     }
 };
 

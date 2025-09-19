@@ -77,7 +77,7 @@ void runRideStatusPrediction() {
         constexpr u32 targetIndex = 16;
 
         rideModel
-            .fromCSV("processed_rides.csv", featureIndices, targetIndex)
+            .fromCSV("datasets/processed_rides.csv", featureIndices, targetIndex)
             .normalize(true)
             .withNetwork({
                 {24, PolicyType::RELU},
@@ -93,7 +93,10 @@ void runRideStatusPrediction() {
 
 i32 main() {
     Log::Platform::enableColors();
-    irisExample();
+    Eigen::setNbThreads(std::thread::hardware_concurrency());
+    Log::Logger().info("Eigen is configured to use up to {} threads.", Eigen::nbThreads());
+
+    runRideStatusPrediction();
 
     //Starter::run(8080, 4);
     return 0;

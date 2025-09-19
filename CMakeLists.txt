@@ -61,10 +61,12 @@ target_sources(main PUBLIC
 target_compile_options(main PRIVATE -fmodules-ts)
 
 find_package(OpenCL REQUIRED)
+find_package(OpenMP REQUIRED)
 
 if(OpenCL_FOUND)
 
 target_link_libraries(main PRIVATE
+        OpenMP::OpenMP_CXX
         stdc++exp
         Boost::system
         Boost::thread

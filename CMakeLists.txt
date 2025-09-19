@@ -44,13 +44,12 @@ add_compile_options(-fmodules-ts)
 file(GLOB_RECURSE HPP_DIR "src/*.hpp")
 file(GLOB_RECURSE CPP_DIR "src/*.cpp")
 file(GLOB_RECURSE MODULES_DIR "src/*.cppm")
-file(GLOB_RECURSE KERNELS_DIR "src/util/model/model-parts/ocl-kernels/*.cl")
+file(GLOB_RECURSE KERNELS_DIR "src/util/model/model-parts/ocl_kernels/*.cl")
 
 add_executable(main
         main.cpp
         ${HPP_DIR}
         ${CPP_DIR}
-        ${KERNELS_DIR}
 )
 target_sources(main PUBLIC
         FILE_SET myModules
@@ -81,14 +80,3 @@ endif()
 if(WIN32)
     target_link_libraries(main PRIVATE ws2_32 mswsock)
 endif()
-
-foreach(kernel_file ${KERNELS_DIR})
-    get_filename_component(kernel_name ${kernel_file} NAME)
-    add_custom_command(
-            TARGET main POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E copy
-            ${kernel_file}
-            $<TARGET_FILE_DIR:main>/${kernel_name}
-            COMMENT "Copying ${kernel_name} to build directory"
-    )
-endforeach()

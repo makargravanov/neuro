@@ -18,7 +18,7 @@ void printVector(const Eigen::VectorXf& vec) {
 
 void irisExample() {
     try {
-        Model<GpuPolicy> iris;
+        Model<CpuEigenPolicy> iris;
 
         iris.fromCSV("datasets/iris.csv", {0, 1, 2, 3}, 4)
             .withNetwork({
@@ -46,7 +46,7 @@ void irisExample() {
 
 void bjuExample() {
     try {
-        Model<GpuPolicy> regressor;
+        Model<CpuEigenPolicy> regressor;
 
         regressor.fromCSV("bju_calories_regression_with_names.csv", {1, 2, 3}, 4)
             .normalize(true)
@@ -70,14 +70,14 @@ void runRideStatusPrediction() {
     Log::Logger().message("--- Starting Ride Booking Status Prediction Example ---");
 
     try {
-        Model<GpuPolicy> rideModel;
+        Model<CpuEigenPolicy> rideModel;
         std::vector<u32> featureIndices(16);
         std::iota(featureIndices.begin(), featureIndices.end(), 0);
 
         constexpr u32 targetIndex = 16;
 
         rideModel
-            .fromCSV("datasets/processed_rides.csv", featureIndices, targetIndex)
+            .fromCSV("processed_rides.csv", featureIndices, targetIndex)
             .normalize(true)
             .withNetwork({
                 {24, PolicyType::RELU},
@@ -93,8 +93,7 @@ void runRideStatusPrediction() {
 
 i32 main() {
     Log::Platform::enableColors();
-    GpuPolicy::init();
-    runRideStatusPrediction();
+    irisExample();
 
     //Starter::run(8080, 4);
     return 0;

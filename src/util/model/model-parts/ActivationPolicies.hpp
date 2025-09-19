@@ -10,6 +10,7 @@ enum class PolicyType {
     SIGMOID,
     LINEAR,
     RELU
+    SOFTMAX // Добавляем новый тип
 };
 
 
@@ -37,6 +38,17 @@ struct ReLUPolicy {
     }
     static f32 derivative(f32 activatedX) {
         return activatedX > 0.0f ? 1.0f : 0.0f;
+    }
+};
+
+
+struct SoftmaxPolicy {
+    static f32 activate(f32 x) {
+        return x;
+    }
+
+    static f32 derivative(f32 activatedX) {
+        return 1.0f;
     }
 };
 

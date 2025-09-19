@@ -9,6 +9,7 @@
 #include "Parser.hpp"
 #include "Normalizer.hpp"
 #include "../logging.hpp"
+#include "model-parts/Metrics.hpp"
 
 class Model {
     std::unique_ptr<Network> network = nullptr;
@@ -18,7 +19,7 @@ class Model {
     std::vector<Output> originalOutputs{};
 
     std::vector<Normalizer> inputNormalizers{};
-    std::optional<Normalizer> outputNormalizer{}; // optional, т.к. нужен только для регрессии
+    std::optional<Normalizer> outputNormalizer{};
 
     u32 inputSize = 0;
     u32 outputSize = 0;
@@ -31,144 +32,124 @@ public:
     Model& fromCSV(const std::string& filepath, const std::vector<u32>& featureColumns, u32 targetColumn, bool hasHeader = true) {
         Log::Logger().info("--- 1. Loading data from {} ---", filepath);
         Parser parser(filepath, featureColumns, targetColumn, hasHeader);
-
-        // оригинальные копии данных
         originalInputs = parser.getInputs();
         originalOutputs = parser.getOutputs();
-        // рабочие
         trainingInputs = originalInputs;
         trainingOutputs = originalOutputs;
-
         inputSize = parser.getInputSize();
         outputSize = parser.getOutputSize();
-
-        // определяем тип задачи: если выходной вектор больше 1, это классификация (one-hot)
         isClassification = outputSize > 1;
-
         Log::Logger().info("Dataset loaded: {} samples.", originalInputs.size());
         Log::Logger().info("Input size: {}. Output size: {}.", inputSize, outputSize);
         Log::Logger().info("Task type: {}.\n", isClassification ? "Classification" : "Regression");
-
         return *this;
     }
 
-    // включение нормализации - опция
+    // --- МЕТОД NORMALIZE ИСПРАВЛЕН ---
     Model& normalize(bool enabled) {
         normalizationEnabled = enabled;
         if (normalizationEnabled) {
-            std::println(std::cout,"--- 2. Normalization enabled ---");
-            // Подготовка нормализаторов
+            Log::Logger().info("--- 2. Normalization enabled ---");
+
+            // Подготовка нормализаторов для входов
             inputNormalizers.resize(inputSize);
             for (u64 i = 0; i < inputSize; ++i) {
+                // Передаем originalInputs напрямую, без конвертации
                 inputNormalizers[i].fit(originalInputs, i);
             }
+
             // Для регрессии нормализуем и выход
             if (!isClassification) {
                 outputNormalizer.emplace();
+                // Передаем originalOutputs напрямую
                 outputNormalizer->fit(originalOutputs, 0);
             }
-             std::println(std::cout,"Normalizers fitted to data.\n");
+            Log::Logger().info("Normalizers fitted to data.\n");
         }
         return *this;
     }
 
-    // конфигурация архитектуры сети
     Model& withNetwork(const std::vector<std::pair<u32, PolicyType>>& layersConfig) {
-        if (inputSize == 0) {
-            throw std::runtime_error("Data must be loaded before configuring the network.");
-        }
-        std::println(std::cout,"--- 3. Configuring network architecture ---");
+        if (inputSize == 0) throw std::runtime_error("Data must be loaded before configuring the network.");
+        Log::Logger().info("--- 3. Configuring network architecture ---");
         network = std::make_unique<Network>(inputSize, layersConfig);
-        std::println(std::cout,"Network created successfully.\n");
-
+        Log::Logger().info("Network created successfully.\n");
         return *this;
     }
 
-    // обучение
-    Model& train(u32 epochs, f32 learningRate) {
+    Model& train(u32 epochs, f32 learningRate, std::optional<LossType> lossTypeOpt = std::nullopt) {
         if (!network) {
             throw std::runtime_error("Network must be configured before training.");
         }
-        std::println(std::cout,"--- 4. Starting training ---");
-        
-        // нормализуем
+        Log::Logger().info("--- 4. Starting training ---");
+
         if (normalizationEnabled) {
-            std::println(std::cout,"Applying normalization to training data...");
+            Log::Logger().info("Applying normalization to training data...");
             for (auto& row : trainingInputs) {
                 for (u32 i = 0; i < row.size(); ++i) {
                     row(i) = inputNormalizers[i].transform(row(i));
                 }
             }
-            if (outputNormalizer.has_value()) {
+            if (outputNormalizer.has_value() && !isClassification) {
                 for (auto& row : trainingOutputs) {
                     row(0) = outputNormalizer->transform(row(0));
                 }
             }
         }
 
-        network->train(trainingInputs, trainingOutputs, epochs, learningRate);
-        std::println(std::cout,"Training complete.\n");
+        LossType lossType = lossTypeOpt.value_or(isClassification ? LossType::CATEGORICAL_CROSS_ENTROPY : LossType::MEAN_SQUARED_ERROR);
+
+        AnyLossPolicy lossPolicy;
+        if (lossType == LossType::CATEGORICAL_CROSS_ENTROPY) {
+            lossPolicy = CategoricalCrossEntropyPolicy{};
+            Log::Logger().info("Using Categorical Cross-Entropy loss function.");
+        } else {
+            lossPolicy = MeanSquaredErrorPolicy{};
+            Log::Logger().info("Using Mean Squared Error loss function.");
+        }
+
+        network->train(trainingInputs, trainingOutputs, epochs, learningRate, lossPolicy);
+        Log::Logger().info("Training complete.\n");
 
         return *this;
     }
 
-    //предсказание на новых данных
     Output predict(const Input& rawInput) {
-        if (!network) {
-            throw std::runtime_error("Network is not trained yet.");
-        }
-        
+        if (!network) throw std::runtime_error("Network is not trained yet.");
         Input processedInput = rawInput;
-        // нормализуем вход, если нужно
         if (normalizationEnabled) {
             for (u32 i = 0; i < processedInput.size(); ++i) {
                 processedInput(i) = inputNormalizers[i].transform(processedInput(i));
             }
         }
-
         Output normalizedResult = network->run(processedInput);
-
-        // денормализуем выход, если это была регрессия с нормализацией
-        if (normalizationEnabled && outputNormalizer.has_value()) {
+        if (normalizationEnabled && outputNormalizer.has_value() && !isClassification) {
             normalizedResult(0) = outputNormalizer->inverseTransform(normalizedResult(0));
         }
-
         return normalizedResult;
     }
 
-    // оценка качества на исходном датасете
     Model& evaluate() {
         Log::Logger().info("--- 5. Evaluating model performance ---");
+        if (originalInputs.empty()) {
+            Log::Logger().warning("No data to evaluate.");
+            return *this;
+        }
+
+        std::vector<Output> predictions;
+        predictions.reserve(originalInputs.size());
+        for (const auto& input : originalInputs) {
+            predictions.push_back(predict(input));
+        }
+
         if (isClassification) {
-            u32 correctPredictions = 0;
-            for (u32 i = 0; i < originalInputs.size(); ++i) {
-                Output prediction = predict(originalInputs[i]);
-
-                Eigen::Index predictedIndex, expectedIndex;
-                prediction.maxCoeff(&predictedIndex);
-                originalOutputs[i].maxCoeff(&expectedIndex);
-
-                if (predictedIndex == expectedIndex) {
-                    correctPredictions++;
-                }
-            }
-            f32 accuracy = static_cast<f32>(correctPredictions) / originalInputs.size() * 100.0f;
-            Log::Logger().info("Accuracy: {:.2f}% ({}/{} correct predictions)", accuracy, correctPredictions, originalInputs.size());
-
+            auto metrics = MetricsService::calculateClassificationMetrics(predictions, originalOutputs);
+            Log::Logger().info("Accuracy: {:.2f}% ({}/{} correct predictions)", metrics.accuracy, metrics.correctPredictions, metrics.totalSamples);
         } else { // Регрессия
-            f32 totalPercentageError = 0;
-            for (u32 i = 0; i < originalInputs.size(); ++i) {
-                Output prediction = predict(originalInputs[i]);
-                f32 predictedValue = prediction(0);
-                f32 expectedValue = originalOutputs[i](0);
-
-                if (expectedValue != 0) {
-                    f32 error = std::abs(predictedValue - expectedValue);
-                    totalPercentageError += (error / expectedValue) * 100.0f;
-                }
-            }
-            f32 meanPercentageError = totalPercentageError / originalInputs.size();
-            Log::Logger().info("Mean Absolute Percentage Error (MAPE): {:.2f}%", meanPercentageError);
+            auto metrics = MetricsService::calculateRegressionMetrics(predictions, originalOutputs);
+            Log::Logger().info("Mean Absolute Error (MAE): {:.4f}", metrics.meanAbsoluteError);
+            Log::Logger().info("Root Mean Squared Error (RMSE): {:.4f}", metrics.rootMeanSquaredError);
+            Log::Logger().info("Mean Absolute Percentage Error (MAPE): {:.2f}%", metrics.meanAbsolutePercentageError);
         }
         Log::Logger().info("");
 

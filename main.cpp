@@ -15,31 +15,6 @@ void printVector(const Eigen::VectorXf& vec) {
     std::print(std::cout, "]");
 }
 
-void xorExample() {
-    Network net(2, { {3, PolicyType::RELU}, {1, PolicyType::SIGMOID} });
-
-    std::vector trainingData = {
-        (Input(2) << 0, 0).finished(),
-        (Input(2) << 0, 1).finished(),
-        (Input(2) << 1, 0).finished(),
-        (Input(2) << 1, 1).finished()
-    };
-    std::vector expectedOutputs = {
-        (Output(1) << 0).finished(),
-        (Output(1) << 1).finished(),
-        (Output(1) << 1).finished(),
-        (Output(1) << 0).finished()
-    };
-
-    net.train(trainingData, expectedOutputs, 10000, 0.2f);
-    std::println(std::cout, "--- Results ---");
-    for (const auto& input : trainingData) {
-        Output result = net.run(input);
-        // Доступ к элементам через ()
-        std::println(std::cout, "Input: [{},{}], Output: {}", input(0), input(1), result(0));
-    }
-}
-
 void irisExample() {
     try {
         Model iris;
@@ -90,8 +65,34 @@ void bjuExample() {
     }
 }
 
+void runRideStatusPrediction() {
+    Log::Logger().message("--- Starting Ride Booking Status Prediction Example ---");
+
+    try {
+        Model rideModel;
+        std::vector<u32> feature_indices(16);
+        std::iota(feature_indices.begin(), feature_indices.end(), 0);
+
+        constexpr u32 target_index = 16;
+
+        rideModel
+            .fromCSV("processed_rides.csv", feature_indices, target_index)
+            .normalize(true)
+            .withNetwork({
+                {24, PolicyType::RELU},
+                {12, PolicyType::RELU},
+                {4,  PolicyType::SOFTMAX}
+            })
+            .train(500, 0.01f)
+            .evaluate();
+    } catch (const std::exception& e) {
+        Log::Logger().error("An error occurred during the prediction task: {}", e.what());
+    }
+}
+
 i32 main() {
     Log::Platform::enableColors();
-    Starter::run(8080, 4);
+    runRideStatusPrediction();
+    //Starter::run(8080, 4);
     return 0;
 }

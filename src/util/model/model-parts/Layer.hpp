@@ -22,7 +22,20 @@ public:
     Output activate(const Input& input) {
         _lastInput = input;
         Input z = _weights * input + _biases;
-        _lastOutput = z.unaryExpr(&ActivationPolicy::activate);
+
+        // Используем if constexpr для специализации логики во время компиляции
+        // Это не создает никаких накладных расходов в рантайме.
+        if constexpr (std::is_same_v<ActivationPolicy, SoftmaxPolicy>) {
+            // Реализация Softmax с защитой от численной нестабильности.
+            // Вычитание максимального элемента из вектора z не меняет результат,
+            // но предотвращает переполнение (overflow) при вычислении exp() для больших чисел.
+            f32 maxCoeff = z.maxCoeff();
+            Output exp_z = (z.array() - maxCoeff).exp();
+            _lastOutput = exp_z / exp_z.sum();
+        } else {
+            // Стандартная поэлементная активация для всех остальных политик
+            _lastOutput = z.unaryExpr(&ActivationPolicy::activate);
+        }
 
         return _lastOutput;
     }

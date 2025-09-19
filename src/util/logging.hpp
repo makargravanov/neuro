@@ -15,10 +15,11 @@
 #include "colors.hpp"
 
 
+
 namespace Log {
     namespace detail {
         inline void printMessage(const std::source_location& loc, FRAMEWORK_CONSTANTS::LogLevel level,
-                                 std::string_view message) {
+                                 std::string_view message, bool includeFunctionName) {
 
             if (level > FRAMEWORK_CONSTANTS::runtimeLogLevel) return;
 
@@ -29,7 +30,6 @@ namespace Log {
             const char* levelStr = "UNKNOWN";
 
             switch (level) {
-
                 case FRAMEWORK_CONSTANTS::LogLevel::LOG_ERROR:
                     levelStr = "ERROR";
                     levelColor = Colors::BoldRed;
@@ -56,58 +56,70 @@ namespace Log {
 
             const std::string_view fileName = std::string_view(loc.file_name()).substr(std::string_view(loc.file_name()).find_last_of("/\\") + 1);
 
-            std::println(std::cout, "[{}] [{}{:<7}{}] [{}:{}] [{}] {}{}{}",
+            std::string functionPart;
+            if (includeFunctionName) {
+                functionPart = std::format("[{}] ", loc.function_name());
+            }
+
+            std::println(std::cout, "[{}] [{}{:<7}{}] [{}:{}] {}{}{}{}",
                          timeStr,
                          levelColor, levelStr, Colors::Reset,
                          fileName,
                          loc.line(),
-                         loc.function_name(),
+                         functionPart,
                          levelColor, message, Colors::Reset);
         }
+
         inline void printMessageSimple(std::string_view color, std::string_view message) {
             std::print(std::cout, "{}{}{}", color, message, Colors::Reset);
         }
     }
 
     class Logger {
-        std::source_location m_location;
+        std::source_location _location;
+        bool _includeFunctionName = false;
 
     public:
         explicit Logger(const std::source_location& loc = std::source_location::current())
-            : m_location(loc) {}
+            : _location(loc) {}
+
+        Logger& withFunction() {
+            _includeFunctionName = true;
+            return *this;
+        }
 
         template<typename... Args>
         void info(std::format_string<Args...> formatStr, Args&&... args) const {
             if constexpr (FRAMEWORK_CONSTANTS::compileTimeLogLevel >= FRAMEWORK_CONSTANTS::LogLevel::LOG_INFO) {
-                detail::printMessage(m_location, FRAMEWORK_CONSTANTS::LogLevel::LOG_INFO, std::format(formatStr, std::forward<Args>(args)...));
+                detail::printMessage(_location, FRAMEWORK_CONSTANTS::LogLevel::LOG_INFO, std::format(formatStr, std::forward<Args>(args)...), _includeFunctionName);
             }
         }
 
         template<typename... Args>
         void message(std::format_string<Args...> formatStr, Args&&... args) const {
             if constexpr (FRAMEWORK_CONSTANTS::compileTimeLogLevel >= FRAMEWORK_CONSTANTS::LogLevel::LOG_MESSAGE) {
-                detail::printMessage(m_location, FRAMEWORK_CONSTANTS::LogLevel::LOG_MESSAGE, std::format(formatStr, std::forward<Args>(args)...));
+                detail::printMessage(_location, FRAMEWORK_CONSTANTS::LogLevel::LOG_MESSAGE, std::format(formatStr, std::forward<Args>(args)...), _includeFunctionName);
             }
         }
 
         template<typename... Args>
         void warning(std::format_string<Args...> formatStr, Args&&... args) const {
             if constexpr (FRAMEWORK_CONSTANTS::compileTimeLogLevel >= FRAMEWORK_CONSTANTS::LogLevel::LOG_WARNING) {
-                detail::printMessage(m_location, FRAMEWORK_CONSTANTS::LogLevel::LOG_WARNING, std::format(formatStr, std::forward<Args>(args)...));
+                detail::printMessage(_location, FRAMEWORK_CONSTANTS::LogLevel::LOG_WARNING, std::format(formatStr, std::forward<Args>(args)...), _includeFunctionName);
             }
         }
 
         template<typename... Args>
         void error(std::format_string<Args...> formatStr, Args&&... args) const {
             if constexpr (FRAMEWORK_CONSTANTS::compileTimeLogLevel >= FRAMEWORK_CONSTANTS::LogLevel::LOG_ERROR) {
-                detail::printMessage(m_location, FRAMEWORK_CONSTANTS::LogLevel::LOG_ERROR, std::format(formatStr, std::forward<Args>(args)...));
+                detail::printMessage(_location, FRAMEWORK_CONSTANTS::LogLevel::LOG_ERROR, std::format(formatStr, std::forward<Args>(args)...), _includeFunctionName);
             }
         }
 
         template<typename... Args>
         void debug(std::format_string<Args...> formatStr, Args&&... args) const {
             if constexpr (FRAMEWORK_CONSTANTS::compileTimeLogLevel >= FRAMEWORK_CONSTANTS::LogLevel::LOG_DEBUG) {
-                detail::printMessage(m_location, FRAMEWORK_CONSTANTS::LogLevel::LOG_DEBUG, std::format(formatStr, std::forward<Args>(args)...));
+                detail::printMessage(_location, FRAMEWORK_CONSTANTS::LogLevel::LOG_DEBUG, std::format(formatStr, std::forward<Args>(args)...), _includeFunctionName);
             }
         }
 
@@ -117,7 +129,6 @@ namespace Log {
                 detail::printMessageSimple(customColor, std::format(formatStr, std::forward<Args>(args)...));
             }
         }
-
     };
 }
 #endif //LOGGING_HPP

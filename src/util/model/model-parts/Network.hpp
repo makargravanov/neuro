@@ -7,7 +7,7 @@
 #include <variant>
 
 #include "ActivationPolicies.hpp"
-#include "Layer.hpp"
+#include "layers/DenseLayer.hpp"
 #include "LossPolicies.hpp"
 #include "../../types/eigen_types.hpp"
 #include "../../logging.hpp"
@@ -17,10 +17,10 @@ template<typename ComputePolicy>
 class Network {
 
     using AnyLayer = std::variant<
-        Layer<SigmoidPolicy, ComputePolicy>,
-        Layer<LinearPolicy, ComputePolicy>,
-        Layer<ReLUPolicy, ComputePolicy>,
-        Layer<SoftmaxPolicy, ComputePolicy>
+        DenseLayer<SigmoidPolicy, ComputePolicy>,
+        DenseLayer<LinearPolicy, ComputePolicy>,
+        DenseLayer<ReLUPolicy, ComputePolicy>,
+        DenseLayer<SoftmaxPolicy, ComputePolicy>
     >;
 
     std::vector<AnyLayer> _layers{};
@@ -36,13 +36,13 @@ public:
             const PolicyType& activation = config.second;
 
             if (activation == PolicyType::RELU) {
-                _layers.emplace_back(Layer<ReLUPolicy, ComputePolicy>(layerSize, lastLayerSize));
+                _layers.emplace_back(DenseLayer<ReLUPolicy, ComputePolicy>(layerSize, lastLayerSize));
             } else if (activation == PolicyType::SIGMOID) {
-                _layers.emplace_back(Layer<SigmoidPolicy, ComputePolicy>(layerSize, lastLayerSize));
+                _layers.emplace_back(DenseLayer<SigmoidPolicy, ComputePolicy>(layerSize, lastLayerSize));
             } else if (activation == PolicyType::LINEAR) {
-                _layers.emplace_back(Layer<LinearPolicy, ComputePolicy>(layerSize, lastLayerSize));
+                _layers.emplace_back(DenseLayer<LinearPolicy, ComputePolicy>(layerSize, lastLayerSize));
             } else if (activation == PolicyType::SOFTMAX) {
-                _layers.emplace_back(Layer<SoftmaxPolicy, ComputePolicy>(layerSize, lastLayerSize));
+                _layers.emplace_back(DenseLayer<SoftmaxPolicy, ComputePolicy>(layerSize, lastLayerSize));
             } else {
                 throw std::invalid_argument("Unknown activation function");
             }
@@ -97,7 +97,7 @@ public:
                 std::visit([&](const auto& lastLayer) {
                     using LastLayerType = std::decay_t<decltype(lastLayer)>;
                     bool isSoftmaxWithCCE = std::holds_alternative<CategoricalCrossEntropyPolicy>(lossFunction) &&
-                                            std::is_same_v<LastLayerType, Layer<SoftmaxPolicy, ComputePolicy>>;
+                                            std::is_same_v<LastLayerType, DenseLayer<SoftmaxPolicy, ComputePolicy>>;
 
                     Output loss_derivative = std::visit([&](const auto& policy) {
                         return policy.derivative(actual, expectedBatch);

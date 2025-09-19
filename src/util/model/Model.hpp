@@ -13,10 +13,10 @@
 
 class Model {
     std::unique_ptr<Network> network = nullptr;
-    std::vector<Input> trainingInputs{};
-    std::vector<Output> trainingOutputs{};
-    std::vector<Input> originalInputs{};
-    std::vector<Output> originalOutputs{};
+    std::vector<Eigen::VectorXf> trainingInputs{};
+    std::vector<Eigen::VectorXf> trainingOutputs{};
+    std::vector<Eigen::VectorXf> originalInputs{};
+    std::vector<Eigen::VectorXf> originalOutputs{};
 
     std::vector<Normalizer> inputNormalizers{};
     std::optional<Normalizer> outputNormalizer{};
@@ -45,29 +45,24 @@ public:
         return *this;
     }
 
-    // --- МЕТОД NORMALIZE ИСПРАВЛЕН ---
     Model& normalize(bool enabled) {
         normalizationEnabled = enabled;
         if (normalizationEnabled) {
             Log::Logger().info("--- 2. Normalization enabled ---");
-
-            // Подготовка нормализаторов для входов
             inputNormalizers.resize(inputSize);
             for (u64 i = 0; i < inputSize; ++i) {
-                // Передаем originalInputs напрямую, без конвертации
                 inputNormalizers[i].fit(originalInputs, i);
             }
-
-            // Для регрессии нормализуем и выход
             if (!isClassification) {
                 outputNormalizer.emplace();
-                // Передаем originalOutputs напрямую
                 outputNormalizer->fit(originalOutputs, 0);
             }
             Log::Logger().info("Normalizers fitted to data.\n");
         }
         return *this;
     }
+
+
 
     Model& withNetwork(const std::vector<std::pair<u32, PolicyType>>& layersConfig) {
         if (inputSize == 0) throw std::runtime_error("Data must be loaded before configuring the network.");
@@ -77,11 +72,11 @@ public:
         return *this;
     }
 
-    Model& train(u32 epochs, f32 learningRate, std::optional<LossType> lossTypeOpt = std::nullopt) {
+    Model& train(u32 epochs, f32 learningRate, u32 batchSize, std::optional<LossType> lossTypeOpt = std::nullopt) {
         if (!network) {
             throw std::runtime_error("Network must be configured before training.");
         }
-        Log::Logger().info("--- 4. Starting training ---");
+        Log::Logger().info("--- 4. Starting training (batch size: {}) ---", batchSize);
 
         if (normalizationEnabled) {
             Log::Logger().info("Applying normalization to training data...");
@@ -108,21 +103,27 @@ public:
             Log::Logger().info("Using Mean Squared Error loss function.");
         }
 
-        network->train(trainingInputs, trainingOutputs, epochs, learningRate, lossPolicy);
+        network->train(trainingInputs, trainingOutputs, epochs, batchSize, learningRate, lossPolicy);
         Log::Logger().info("Training complete.\n");
 
         return *this;
     }
 
-    Output predict(const Input& rawInput) {
+    Eigen::VectorXf predict(const Eigen::VectorXf& rawInput) {
         if (!network) throw std::runtime_error("Network is not trained yet.");
-        Input processedInput = rawInput;
+        Eigen::VectorXf processedInput = rawInput;
         if (normalizationEnabled) {
             for (u32 i = 0; i < processedInput.size(); ++i) {
                 processedInput(i) = inputNormalizers[i].transform(processedInput(i));
             }
         }
-        Output normalizedResult = network->run(processedInput);
+        Input batchInput(processedInput.size(), 1);
+        batchInput.col(0) = processedInput;
+
+        Output normalizedResultBatch = network->run(batchInput);
+
+        Eigen::VectorXf normalizedResult = normalizedResultBatch.col(0);
+
         if (normalizationEnabled && outputNormalizer.has_value() && !isClassification) {
             normalizedResult(0) = outputNormalizer->inverseTransform(normalizedResult(0));
         }
@@ -136,7 +137,7 @@ public:
             return *this;
         }
 
-        std::vector<Output> predictions;
+        std::vector<Eigen::VectorXf> predictions;
         predictions.reserve(originalInputs.size());
         for (const auto& input : originalInputs) {
             predictions.push_back(predict(input));

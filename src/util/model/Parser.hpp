@@ -9,9 +9,10 @@
 
 #include "../types/eigen_types.hpp"
 
+
 class Parser {
-    std::vector<Input> _inputs;
-    std::vector<Output> _outputs;
+    std::vector<Eigen::VectorXf> _inputs;
+    std::vector<Eigen::VectorXf> _outputs;
     std::vector<std::string> _header;
     std::map<std::string, u32> _classMap;
     u32 _nextClassId = 0;
@@ -46,24 +47,23 @@ public:
                 continue;
             }
 
-            Input currentInput(featureColumns.size());
+            Eigen::VectorXf currentInput(featureColumns.size());
             for (i64 i = 0; i < featureColumns.size(); ++i) {
                 currentInput(i) = std::stof(row.at(featureColumns[i]));
             }
             _inputs.push_back(currentInput);
 
-            // Формируем вектор выходов (теперь Eigen::VectorXf)
             const std::string& targetValue = row.at(targetColumn);
             try {
                 f32 numericOutput = std::stof(targetValue);
-                Output out(1);
+                Eigen::VectorXf out(1);
                 out(0) = numericOutput;
                 _outputs.push_back(out);
             } catch (const std::invalid_argument&) {
                 if (!_classMap.contains(targetValue)) {
                     _classMap[targetValue] = _nextClassId++;
                 }
-                Output out(1);
+                Eigen::VectorXf out(1);
                 out(0) = static_cast<f32>(_classMap[targetValue]);
                 _outputs.push_back(out);
             }
@@ -79,10 +79,9 @@ public:
         }
     }
 
-    [[nodiscard]] const std::vector<Input>& getInputs() const { return _inputs; }
-    [[nodiscard]] const std::vector<Output>& getOutputs() const { return _outputs; }
+    [[nodiscard]] const std::vector<Eigen::VectorXf>& getInputs() const { return _inputs; }
+    [[nodiscard]] const std::vector<Eigen::VectorXf>& getOutputs() const { return _outputs; }
     [[nodiscard]] u32 getOutputSize() const { return _nextClassId == 0 ? 1 : _nextClassId; }
     [[nodiscard]] u32 getInputSize() const { return _inputs.empty() ? 0 : _inputs.at(0).size(); }
 };
-
 #endif

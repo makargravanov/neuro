@@ -24,13 +24,13 @@ void irisExample() {
                 {8, PolicyType::RELU},
                 {3, PolicyType::SIGMOID}
             })
-            .train(500, 0.1f)
+            .train(500, 0.1f, 10)
             .evaluate();
 
         std::println(std::cout, "--- Prediction Example ---");
 
-        Input sample = (Input(4) << 5.1, 3.5, 1.4, 0.2).finished();
-        Output prediction = iris.predict(sample);
+        Eigen::VectorXf sample = (Eigen::VectorXf(4) << 5.1, 3.5, 1.4, 0.2).finished();
+        Eigen::VectorXf prediction = iris.predict(sample);
 
         std::print(std::cout, "Input: ");
         printVector(sample);
@@ -52,10 +52,10 @@ void bjuExample() {
             .withNetwork({
                 {1, PolicyType::LINEAR}
             })
-            .train(5000, 0.01f)
+            .train(5000, 0.01f, 32)
             .evaluate();
 
-        Input newProduct = (Input(3) << 150, 80, 120).finished();
+        Eigen::VectorXf newProduct = (Eigen::VectorXf(3) << 150, 80, 120).finished();
         std::print(std::cout, "Predicting for B/J/U: ");
         printVector(newProduct);
         std::println(std::cout, " -> Predicted kcal: {:.1f}", regressor.predict(newProduct)(0));
@@ -83,7 +83,7 @@ void runRideStatusPrediction() {
                 {12, PolicyType::RELU},
                 {4,  PolicyType::SOFTMAX}
             })
-            .train(1000, 0.00001f)
+            .train(1000, 0.002f, 128)
             .evaluate();
     } catch (const std::exception& e) {
         Log::Logger().error("An error occurred during the prediction task: {}", e.what());

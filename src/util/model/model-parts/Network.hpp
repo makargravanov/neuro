@@ -2,6 +2,7 @@
 #ifndef NETWORK_HPP
 #define NETWORK_HPP
 
+#include <random>
 #include <stdexcept>
 #include <variant>
 
@@ -10,6 +11,7 @@
 #include "LossPolicies.hpp"
 #include "../../types/eigen_types.hpp"
 #include "../../logging.hpp"
+
 
 
 using AnyLayer = std::variant<
@@ -58,61 +60,83 @@ public:
         return temp;
     }
 
-    void train(const std::vector<Input>& trainingData, const std::vector<Output>& expectedOutputs, u32 epochs, f32 learningRate, const AnyLossPolicy& lossFunction) {
+    void train(const std::vector<Eigen::VectorXf>& trainingData, const std::vector<Eigen::VectorXf>& expectedOutputs, u32 epochs, u32 batchSize, f32 learningRate, const AnyLossPolicy& lossFunction) {
         if (trainingData.size() != expectedOutputs.size()) {
             throw std::invalid_argument("Training data and expected outputs must have the same size.");
         }
 
+        const u32 numSamples = trainingData.size();
+        std::vector<u32> indices(numSamples);
+        std::iota(indices.begin(), indices.end(), 0);
+
         for (u32 epoch = 0; epoch < epochs; ++epoch) {
+            std::random_device rd;
+            std::mt19937 g(rd());
+            std::shuffle(indices.begin(), indices.end(), g);
+
             f32 totalError = 0;
-            for (u32 i = 0; i < trainingData.size(); ++i) {
-                const auto& input = trainingData[i];
-                const auto& expected = expectedOutputs[i];
+            for (u32 i = 0; i < numSamples; i += batchSize) {
+                u32 currentBatchSize = std::min(batchSize, numSamples - i);
 
-                Output actual = run(input);
+                Input inputBatch(trainingData[0].size(), currentBatchSize);
+                Output expectedBatch(expectedOutputs[0].size(), currentBatchSize);
+                for (u32 j = 0; j < currentBatchSize; ++j) {
+                    inputBatch.col(j) = trainingData[indices[i + j]];
+                    expectedBatch.col(j) = expectedOutputs[indices[i + j]];
+                }
 
-                // вычисляем ошибку, используя переданную политику
+                Output actual = run(inputBatch);
+
                 totalError += std::visit([&](const auto& policy) {
-                    return policy.calculate(actual, expected);
+                    return policy.calculate(actual, expectedBatch) * currentBatchSize;
                 }, lossFunction);
 
-                // backward pass
                 Output delta;
-
                 std::visit([&](const auto& lastLayer) {
                     using LastLayerType = std::decay_t<decltype(lastLayer)>;
                     bool isSoftmaxWithCCE = std::holds_alternative<CategoricalCrossEntropyPolicy>(lossFunction) &&
                                             std::is_same_v<LastLayerType, Layer<SoftmaxPolicy>>;
 
+                    Output loss_derivative = std::visit([&](const auto& policy) {
+                        return policy.derivative(actual, expectedBatch);
+                    }, lossFunction);
+
                     if (isSoftmaxWithCCE) {
-                        delta = actual - expected;
+                        delta = loss_derivative;
                     } else {
-                        Output loss_derivative = std::visit([&](const auto& policy) {
-                            return policy.derivative(actual, expected);
-                        }, lossFunction);
                         delta = loss_derivative.cwiseProduct(lastLayer.activationDerivative());
                     }
                 }, _layers.back());
 
+                for (i64 j = _layers.size() - 1; j >= 0; --j) {
+                    // 1. Определяем вход для текущего слоя j (это выход слоя j-1)
+                    const auto& prevLayerOutput = (j > 0) ?
+                        std::visit([](auto& l){ return l.getLastOutput(); }, _layers[j-1]) :
+                        inputBatch;
 
-                // распространяем ошибку на скрытые слои (логика та же)
-                for (i64 j = _layers.size() - 2; j >= 0; --j) {
-                    delta = std::visit([&](const auto& nextLayer, auto& currentLayer) -> Output {
-                        Output newDelta = (nextLayer.getWeights().transpose() * delta).cwiseProduct(currentLayer.activationDerivative());
+                    // 2. Вычисляем градиенты для весов и смещений слоя j, используя текущий delta
+                    WeightMatrix weightGrad = delta * prevLayerOutput.transpose();
+                    BiasVector biasGrad = delta.rowwise().mean();
 
-                        const auto& prevLayerOutput = (j > 0) ?
-                            std::visit([](auto& l){ return l.getLastOutput(); }, _layers[j-1]) :
-                            input;
+                    // 3. Вычисляем delta для *следующей* итерации (для слоя j-1),
+                    //    используя веса текущего слоя j.
+                    if (j > 0) {
+                        delta = std::visit([&](const auto& currentLayer) -> Output {
+                            return (currentLayer.getWeights().transpose() * delta).cwiseProduct(
+                                std::visit([](auto& prevLayer){ return prevLayer.activationDerivative(); }, _layers[j-1])
+                            );
+                        }, _layers[j]);
+                    }
 
-                        currentLayer.getWeights() -= learningRate * (newDelta * prevLayerOutput.transpose());
-                        currentLayer.getBiases() -= learningRate * newDelta;
-
-                        return newDelta;
-                    }, _layers[j+1], _layers[j]);
+                    // 4. Обновляем веса и смещения для слоя j
+                    std::visit([&](auto& layer) {
+                        layer.getWeights() -= learningRate * weightGrad;
+                        layer.getBiases() -= learningRate * biasGrad;
+                    }, _layers[j]);
                 }
             }
             if ((epoch + 1) % 10 == 0) {
-                 Log::Logger().debug("Epoch {}/{}, Avg Error: {}", epoch + 1, epochs, totalError / trainingData.size());
+                 Log::Logger().debug("Epoch {}/{}, Avg Error: {}", epoch + 1, epochs, totalError / numSamples);
             }
         }
     }

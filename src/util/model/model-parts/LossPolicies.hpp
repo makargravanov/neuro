@@ -13,36 +13,32 @@ enum class LossType {
     CATEGORICAL_CROSS_ENTROPY
 };
 
-// Политика для ошибки среднего квадратичного (хорошо для регрессии)
 struct MeanSquaredErrorPolicy {
     static f32 calculate(const Output& actual, const Output& expected) {
-        return (expected - actual).squaredNorm();
+        // Возвращаем среднюю квадратичную ошибку по батчу
+        return (expected - actual).squaredNorm() / actual.cols();
     }
 
     static Output derivative(const Output& actual, const Output& expected) {
-        // Производная MSE по выходу сети (dE/da)
-        return actual - expected;
+        // Производная средней MSE по выходу сети (dE/da)
+        return (actual - expected) / actual.cols();
     }
 };
 
-// Политика для категориальной кросс-энтропии (хорошо для классификации)
 struct CategoricalCrossEntropyPolicy {
     static f32 calculate(const Output& actual, const Output& expected) {
-        // Добавляем эпсилон для численной стабильности, чтобы избежать log(0)
         constexpr f32 epsilon = 1e-9f;
         Output clippedActual = actual.cwiseMax(epsilon).cwiseMin(1.0f - epsilon);
-        return -(expected.array() * clippedActual.array().log()).sum();
+        // Возвращаем среднюю CCE по батчу
+        return -(expected.array() * clippedActual.array().log()).sum() / actual.cols();
     }
 
     static Output derivative(const Output& actual, const Output& expected) {
-        // Это важное математическое упрощение, которое работает, когда CCE
-        // используется вместе с активацией Softmax или Sigmoid на выходном слое.
-        // Производная всей связки элегантно сводится к (actual - expected).
-        return actual - expected;
+        // Упрощенная производная для связки CCE + Softmax, усредненная по батчу
+        return (actual - expected) / actual.cols();
     }
 };
 
-// Используем std::variant для хранения любой из политик без динамического полиморфизма
 using AnyLossPolicy = std::variant<MeanSquaredErrorPolicy, CategoricalCrossEntropyPolicy>;
 
 #endif //LOSSPOLICIES_HPP

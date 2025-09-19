@@ -25,11 +25,11 @@ struct RegressionMetrics {
 class MetricsService {
 public:
     static ClassificationMetrics calculateClassificationMetrics(
-        const std::vector<Output>& predictions,
-        const std::vector<Output>& groundTruth)
+        const std::vector<Eigen::VectorXf>& predictions,
+        const std::vector<Eigen::VectorXf>& groundTruth)
     {
         if (predictions.size() != groundTruth.size() || predictions.empty()) {
-            return {}; // возвращаем метрики по умолчанию, если данные некорректны
+            return {};
         }
 
         ClassificationMetrics metrics;
@@ -51,8 +51,8 @@ public:
     }
 
     static RegressionMetrics calculateRegressionMetrics(
-        const std::vector<Output>& predictions,
-        const std::vector<Output>& groundTruth)
+        const std::vector<Eigen::VectorXf>& predictions,
+        const std::vector<Eigen::VectorXf>& groundTruth)
     {
         if (predictions.size() != groundTruth.size() || predictions.empty()) {
             return {};
@@ -89,5 +89,4 @@ public:
         return metrics;
     }
 };
-
 #endif //METRICS_HPP

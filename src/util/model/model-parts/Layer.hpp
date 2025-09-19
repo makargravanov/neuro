@@ -9,8 +9,8 @@ class Layer {
     WeightMatrix _weights;
     BiasVector _biases;
 
-    Output _lastOutput;
     Input _lastInput;
+    Output _lastOutput;
 public:
     Layer() = default;
 
@@ -21,19 +21,19 @@ public:
 
     Output activate(const Input& input) {
         _lastInput = input;
-        Input z = _weights * input + _biases;
+        // z = W * X + b, где X - батч входов (каждый столбец - пример)
+        // .colwise() добавляет вектор смещений к каждому столбцу матрицы
+        Input z = (_weights * input).colwise() + _biases;
 
-        // Используем if constexpr для специализации логики во время компиляции
-        // Это не создает никаких накладных расходов в рантайме.
         if constexpr (std::is_same_v<ActivationPolicy, SoftmaxPolicy>) {
-            // Реализация Softmax с защитой от численной нестабильности.
-            // Вычитание максимального элемента из вектора z не меняет результат,
-            // но предотвращает переполнение (overflow) при вычислении exp() для больших чисел.
-            f32 maxCoeff = z.maxCoeff();
-            Output expZ = (z.array() - maxCoeff).exp();
-            _lastOutput = expZ / expZ.sum();
+            // Применяем Softmax к каждому столбцу (примеру) в батче
+            // Вычитаем максимум в каждом столбце для численной стабильности
+            Eigen::RowVectorXf maxCoeffs = z.colwise().maxCoeff();
+            Output expZ = (z.rowwise() - maxCoeffs).array().exp();
+            // Нормализуем каждый столбец на его сумму
+            _lastOutput = expZ.array().rowwise() / expZ.colwise().sum().array();
         } else {
-            // Стандартная поэлементная активация для всех остальных политик
+            // Поэлементная активация для остальных политик
             _lastOutput = z.unaryExpr(&ActivationPolicy::activate);
         }
 
@@ -53,5 +53,6 @@ public:
         return _lastOutput.unaryExpr(&ActivationPolicy::derivative);
     }
 };
+
 
 #endif

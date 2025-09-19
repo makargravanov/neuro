@@ -13,7 +13,7 @@ class Normalizer {
     f32 _max = std::numeric_limits<f32>::lowest();
 
 public:
-    void fit(const std::vector<Input>& data, u32 columnIndex) {
+    void fit(const std::vector<Eigen::VectorXf>& data, u32 columnIndex) {
         for (const auto& row : data) {
             if (row(columnIndex) < _min) _min = row(columnIndex);
             if (row(columnIndex) > _max) _max = row(columnIndex);
@@ -29,5 +29,4 @@ public:
         return value * (_max - _min) + _min;
     }
 };
-
 #endif

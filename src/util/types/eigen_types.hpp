@@ -8,8 +8,8 @@
 #include <Eigen/Dense>
 #include "types.hpp"
 
-using Input = Eigen::VectorXf;
-using Output = Eigen::VectorXf;
+using Input = Eigen::MatrixXf;
+using Output = Eigen::MatrixXf;
 //матрица весов для слоя
 using WeightMatrix = Eigen::MatrixXf;
 //вектор смещений для слоя

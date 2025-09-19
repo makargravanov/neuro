@@ -113,23 +113,41 @@ public:
 
     Eigen::VectorXf predict(const Eigen::VectorXf& rawInput) {
         if (!network) throw std::runtime_error("Network is not trained yet.");
+
         Eigen::VectorXf processedInput = rawInput;
         if (normalizationEnabled) {
             for (u32 i = 0; i < processedInput.size(); ++i) {
                 processedInput(i) = inputNormalizers[i].transform(processedInput(i));
             }
         }
+
         Input batchInput(processedInput.size(), 1);
         batchInput.col(0) = processedInput;
 
-        Output normalizedResultBatch = network->run(batchInput);
+        Eigen::VectorXf finalResult;
 
-        Eigen::VectorXf normalizedResult = normalizedResultBatch.col(0);
+        if constexpr (std::is_same_v<ActiveComputePolicy, GpuPolicy>) {
+            OclBuffer input_buf;
+            input_buf.create(batchInput.size() * sizeof(f32));
+            input_buf.write(batchInput.data());
+
+            // --- ИСПРАВЛЕНИЕ 1 ---
+            // Убрали лишний аргумент 'inputSize' и передаем владение буфером
+            OclBuffer result_buf = network->run_gpu(std::move(input_buf), 1);
+
+            Output result_cpu(outputSize, 1);
+            result_buf.read(result_cpu.data());
+            finalResult = result_cpu.col(0);
+
+        } else {
+            Output normalizedResultBatch = network->run(batchInput);
+            finalResult = normalizedResultBatch.col(0);
+        }
 
         if (normalizationEnabled && outputNormalizer.has_value() && !isClassification) {
-            normalizedResult(0) = outputNormalizer->inverseTransform(normalizedResult(0));
+            finalResult(0) = outputNormalizer->inverseTransform(finalResult(0));
         }
-        return normalizedResult;
+        return finalResult;
     }
 
     Model& evaluate() {

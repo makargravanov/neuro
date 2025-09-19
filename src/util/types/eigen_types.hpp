@@ -8,11 +8,14 @@
 #include <Eigen/Dense>
 #include "types.hpp"
 
-using Input = Eigen::MatrixXf;
-using Output = Eigen::MatrixXf;
+using MatrixXfRowMajor = Eigen::Matrix<f32, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
+using VectorXfRowMajor = Eigen::Matrix<f32, Eigen::Dynamic, 1>;
+
+using Input = MatrixXfRowMajor;
+using Output = MatrixXfRowMajor;
 //матрица весов для слоя
-using WeightMatrix = Eigen::MatrixXf;
+using WeightMatrix = MatrixXfRowMajor;
 //вектор смещений для слоя
-using BiasVector = Eigen::VectorXf;
+using BiasVector = VectorXfRowMajor;
 
 #endif //EIGEN_TYPES_HPP

@@ -9,9 +9,11 @@ set(CMAKE_CXX_EXTENSIONS ON)
 
 project(neuro LANGUAGES CXX)
 
-include(FetchContent)
+set(OPENCL_SDK_DIR ${CMAKE_CURRENT_SOURCE_DIR}/opencl-sdk)
+set(OpenCL_INCLUDE_DIR ${OPENCL_SDK_DIR}/include)
+set(OpenCL_LIBRARY ${OPENCL_SDK_DIR}/lib/OpenCL.lib)
 
-find_package(OpenCL REQUIRED)
+include(FetchContent)
 
 set(BOOST_ENABLE_CMAKE ON)
 
@@ -58,11 +60,9 @@ target_sources(main PUBLIC
 
 target_compile_options(main PRIVATE -fmodules-ts)
 
-target_include_directories(main PRIVATE
-        ${opencl-headers_SOURCE_DIR}/include
-        ${opencl-clhpp_SOURCE_DIR}/include
-)
+find_package(OpenCL REQUIRED)
 
+if(OpenCL_FOUND)
 
 target_link_libraries(main PRIVATE
         stdc++exp
@@ -75,6 +75,7 @@ target_link_libraries(main PRIVATE
         nlohmann_json
         OpenCL::OpenCL
 )
+endif()
 
 if(WIN32)
     target_link_libraries(main PRIVATE ws2_32 mswsock)

@@ -28,13 +28,17 @@ FetchContent_Declare(
 FetchContent_Declare(
         eigen
         GIT_REPOSITORY https://gitlab.com/libeigen/eigen.git
-        GIT_TAG        3.4.0
+        GIT_TAG        e0a59e5a66e6d16fa93ab4f5e48bf539205e837f
+        GIT_SHALLOW    TRUE
+        GIT_PROGRESS   TRUE
 )
 
 FetchContent_Declare(
         nlohmann-json
         GIT_REPOSITORY https://github.com/nlohmann/json.git
         GIT_TAG        v3.12.0
+        GIT_SHALLOW    TRUE
+        GIT_PROGRESS   TRUE
 )
 
 FetchContent_MakeAvailable(boost eigen nlohmann-json)
@@ -73,7 +77,7 @@ target_link_libraries(main PRIVATE
         Boost::asio
         Boost::beast
         Boost::uuid
-        eigen
+        Eigen3::Eigen
         nlohmann_json
         OpenCL::OpenCL
 )

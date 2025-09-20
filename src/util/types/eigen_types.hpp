@@ -8,7 +8,7 @@
 #include <variant>
 #include <Eigen/Dense>
 #include "types.hpp"
-#include "unsupported/Eigen/CXX11/src/Tensor/Tensor.h"
+#include <unsupported/Eigen/CXX11/Tensor>
 
 
 // --- Типы для полносвязных (Dense) слоев ---
@@ -24,11 +24,11 @@ using BiasVector = Eigen::VectorXf;
 // --- Типы для сверточных (Convolutional) слоев ---
 // Тензоры будут иметь формат NCHW (Batch, Channels, Height, Width)
 // Это стандартный и наиболее производительный формат для многих фреймворков.
-using Tensor4f = Eigen::Tensor<f32, 4, Eigen::RowMajor, Eigen::DenseIndex>;
+using Tensor4f = Eigen::Tensor<f32, 4, Eigen::RowMajor>;
 
 // Веса для сверточного слоя
 // (output_channels, input_channels, kernel_height, kernel_width)
-using KernelTensor = Eigen::Tensor<f32, 4, Eigen::RowMajor, Eigen::DenseIndex>;
+using KernelTensor = Eigen::Tensor<f32, 4, Eigen::RowMajor>;
 
 
 // --- Универсальные псевдонимы для использования в Network.hpp ---

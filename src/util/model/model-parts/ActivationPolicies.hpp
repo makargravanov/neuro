@@ -39,7 +39,10 @@ enum class LayerType {
     FLATTEN
 };
 
-
+enum class PaddingMode {
+    VALID, // Без паддинга, выходной размер уменьшается
+    SAME   // С паддингом, выходной размер сохраняется (при stride=1)
+};
 
 struct SigmoidPolicy {
     static f32 activate(f32 x) {

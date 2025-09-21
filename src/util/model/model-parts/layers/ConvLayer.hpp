@@ -11,10 +11,6 @@
 #include "../ComputePolicies.hpp"
 
 
-enum class PaddingMode {
-    VALID, // Без паддинга, выходной размер уменьшается
-    SAME   // С паддингом, выходной размер сохраняется (при stride=1)
-};
 
 struct ConvConfig {
     u32 inputChannels{};

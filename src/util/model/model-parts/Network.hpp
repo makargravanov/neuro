@@ -35,6 +35,8 @@ class Network {
     std::vector<OutputType> _lastLayerOutputs{};
 public:
 
+    Network() = default;
+
     void addLayer(AnyLayer layer) {
         _layers.emplace_back(std::move(layer));
     }

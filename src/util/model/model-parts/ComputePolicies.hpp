@@ -6,7 +6,6 @@
 #include <unsupported/Eigen/CXX11/Tensor>
 #include "../../types/eigen_types.hpp"
 #include "ActivationPolicies.hpp"
-#include "layers/ConvLayer.hpp"
 
 /**
  * @struct CpuEigenPolicy

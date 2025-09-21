@@ -6,6 +6,7 @@
 #include <unsupported/Eigen/CXX11/Tensor>
 #include "../../types/eigen_types.hpp"
 #include "ActivationPolicies.hpp"
+#include "layers/ConvLayer.hpp"
 
 /**
  * @struct CpuEigenPolicy
@@ -16,6 +17,42 @@
  * и сверточных слоев.
  */
 struct CpuEigenPolicy {
+    enum class ConvolutionMode { VALID, SAME, FULL };
+    /**
+     * @brief Универсальная вспомогательная функция свертки.
+     * @details Инкапсулирует логику паддинга для разных режимов.
+     */
+    static Tensor4f _convolution(const Tensor4f& input, const KernelTensor& kernel, u32 stride, ConvolutionMode mode) {
+        Tensor4f paddedInput = input;
+        const Eigen::DenseIndex inHeight = input.dimension(2);
+        const Eigen::DenseIndex inWidth = input.dimension(3);
+        const Eigen::DenseIndex kernelHeight = kernel.dimension(2);
+        const Eigen::DenseIndex kernelWidth = kernel.dimension(3);
+
+        if (mode == ConvolutionMode::FULL) {
+            const Eigen::DenseIndex padH = kernelHeight - 1;
+            const Eigen::DenseIndex padW = kernelWidth - 1;
+            paddedInput = input.pad(std::array<std::pair<Eigen::DenseIndex, Eigen::DenseIndex>, 4>{
+                std::pair{0, 0}, std::pair{0, 0}, std::pair{padH, padH}, std::pair{padW, padW}
+            });
+        } else if (mode == ConvolutionMode::SAME) {
+            const Eigen::DenseIndex outHeight = (inHeight + stride - 1) / stride;
+            const Eigen::DenseIndex outWidth = (inWidth + stride - 1) / stride;
+            const Eigen::DenseIndex padAlongHeight = std::max((outHeight - 1) * stride + kernelHeight - inHeight, 0LL);
+            const Eigen::DenseIndex padAlongWidth = std::max((outWidth - 1) * stride + kernelWidth - inWidth, 0LL);
+            const Eigen::DenseIndex padTop = padAlongHeight / 2;
+            const Eigen::DenseIndex padBottom = padAlongHeight - padTop;
+            const Eigen::DenseIndex padLeft = padAlongWidth / 2;
+            const Eigen::DenseIndex padRight = padAlongWidth - padLeft;
+            paddedInput = input.pad(std::array<std::pair<Eigen::DenseIndex, Eigen::DenseIndex>, 4>{
+                std::pair{0, 0}, std::pair{0, 0}, std::pair{padTop, padBottom}, std::pair{padLeft, padRight}
+            });
+        }
+        // для VALID используется исходный input
+
+        Eigen::array<Eigen::DenseIndex, 2> strides = {static_cast<Eigen::DenseIndex>(stride), static_cast<Eigen::DenseIndex>(stride)};
+        return paddedInput.convolve(kernel, strides);
+    }
 
     // ===================================================================================
     // MARK: - 1. Общие утилиты и операции активации
@@ -27,12 +64,10 @@ struct CpuEigenPolicy {
     template<typename ActivationPolicy>
     static DenseOutput activate(const DenseInput& z) {
         if constexpr (std::is_same_v<ActivationPolicy, SoftmaxPolicy>) {
-            // Softmax не является поэлементной, требует особого подхода
             Eigen::RowVectorXf maxCoeffs = z.colwise().maxCoeff();
             DenseOutput expZ = (z.rowwise() - maxCoeffs).array().exp();
             return expZ.array().rowwise() / expZ.colwise().sum().array();
         } else {
-            // Для поэлементных функций (ReLU, Sigmoid, Linear)
             return z.unaryExpr(&ActivationPolicy::activate);
         }
     }
@@ -112,68 +147,90 @@ struct CpuEigenPolicy {
     /**
      * @brief Прямое распространение: операция свертки.
      */
-    static Tensor4f convolution(const Tensor4f& input, const KernelTensor& kernels, const BiasVector& biases, u32 stride, u32 padding) {
-        const Eigen::DenseIndex batchSize = input.dimension(0);
-        const Eigen::DenseIndex outChannels = kernels.dimension(0);
-        const Eigen::DenseIndex inHeight = input.dimension(2);
-        const Eigen::DenseIndex inWidth = input.dimension(3);
-        const Eigen::DenseIndex kernelHeight = kernels.dimension(2);
-        const Eigen::DenseIndex kernelWidth = kernels.dimension(3);
+    static Tensor4f convolution(const Tensor4f& input, const KernelTensor& kernels, const BiasVector& biases, u32 stride, PaddingMode paddingMode) {
+        ConvolutionMode mode = (paddingMode == PaddingMode::SAME) ? ConvolutionMode::SAME : ConvolutionMode::VALID;
+        Tensor4f output = _convolution(input, kernels, stride, mode);
 
-        const Eigen::DenseIndex outHeight = (inHeight - kernelHeight + 2 * padding) / stride + 1;
-        const Eigen::DenseIndex outWidth = (inWidth - kernelWidth + 2 * padding) / stride + 1;
+        const Eigen::DenseIndex batchSize = output.dimension(0);
+        const Eigen::DenseIndex outChannels = output.dimension(1);
+        const Eigen::DenseIndex outHeight = output.dimension(2);
+        const Eigen::DenseIndex outWidth = output.dimension(3);
 
-        Tensor4f paddedInput = input;
-        if (padding > 0) {
-            paddedInput = input.pad(std::array<std::pair<Eigen::DenseIndex, Eigen::DenseIndex>, 4>{
-                std::pair{0, 0}, std::pair{0, 0}, std::pair{padding, padding}, std::pair{padding, padding}
-            }, 0.0f);
-        }
-
-        // Используем встроенную свертку в Eigen::Tensor
-        Eigen::array<Eigen::DenseIndex, 2> strides = {stride, stride};
-        Tensor4f output = paddedInput.convolve(kernels, strides);
-
-        // Добавляем смещения (biases)
         Tensor4f biasTensor(1, outChannels, 1, 1);
         for(Eigen::DenseIndex i = 0; i < outChannels; ++i) {
             biasTensor(0, i, 0, 0) = biases(i);
         }
-        // Используем broadcasting для добавления смещения к каждому элементу в канале
         Eigen::array<Eigen::DenseIndex, 4> bcast = {batchSize, 1, outHeight, outWidth};
-        Tensor4f broadcasted_biases = biasTensor.broadcast(bcast);
-        output = output + broadcasted_biases;
-
-        return output;
+        return output + biasTensor.broadcast(bcast);
     }
 
     /**
      * @brief Обратное распространение: вычисление градиента для весов (ядер).
+     * @details grad_W = conv(Input, Delta_output). Мы используем трюк с перестановкой
+     *          измерений, чтобы свести задачу к стандартной свертке Eigen.
      */
-    static KernelTensor calculateKernelGradient(const Tensor4f& delta, const Tensor4f& prevLayerOutput, u32 kernelH, u32 kernelW, u32 stride, u32 padding) {
-        // Это свертка входа с дельтой выхода
-        // TODO: Реализовать более сложную логику с учетом stride и padding
-        return KernelTensor(); // Заглушка
-    }
+    static KernelTensor calculateKernelGradient(const Tensor4f& prevLayerOutput, const Tensor4f& delta, u32 stride, PaddingMode paddingMode) {
+        Tensor4f shuffledInput = prevLayerOutput.shuffle(std::array<int, 4>{1, 0, 2, 3});
+        Tensor4f shuffledDelta = delta.shuffle(std::array<int, 4>{1, 0, 2, 3});
 
-    /**
-     * @brief Обратное распространение: вычисление градиента для смещений.
-     */
+        // Градиент по весам - это свертка входа с дельтой.
+        // Режим паддинга здесь противоположен прямому проходу.
+        ConvolutionMode mode = (paddingMode == PaddingMode::SAME) ? ConvolutionMode::VALID : ConvolutionMode::SAME;
+
+        // Для вычисления градиента мы используем дилатацию (dilation) входа, чтобы эмулировать stride
+        Tensor4f dilatedInput = shuffledInput;
+        if (stride > 1) {
+            const auto& ddims = shuffledInput.dimensions();
+            Eigen::DSizes<Eigen::DenseIndex, 4> upsampled_dims(
+                ddims[0], ddims[1],
+                (ddims[2] - 1) * stride + 1,
+                (ddims[3] - 1) * stride + 1
+            );
+            dilatedInput.resize(upsampled_dims);
+            dilatedInput.setZero();
+            Eigen::array<Eigen::DenseIndex, 4> offsets = {0, 0, 0, 0};
+            Eigen::array<Eigen::DenseIndex, 4> extents = {ddims[0], ddims[1], ddims[2], ddims[3]};
+            Eigen::array<Eigen::DenseIndex, 4> strides_arr = {1, 1, static_cast<Eigen::DenseIndex>(stride), static_cast<Eigen::DenseIndex>(stride)};
+            dilatedInput.stridedSlice(offsets, extents, strides_arr) = shuffledInput;
+        }
+
+        Tensor4f grad = _convolution(dilatedInput, shuffledDelta, 1, mode);
+
+        return grad.shuffle(std::array<int, 4>{1, 0, 2, 3});
+    }
     static BiasVector calculateBiasGradient(const Tensor4f& delta) {
-        // Суммируем градиенты по всем измерениям, кроме каналов
         Eigen::array<Eigen::DenseIndex, 3> sum_dims = {0, 2, 3};
-        Eigen::Tensor<f32, 1> biasGradTensor = delta.sum(sum_dims);
+        Eigen::Tensor<f32, 1, Eigen::RowMajor> biasGradTensor = delta.sum(sum_dims);
         return Eigen::Map<BiasVector>(biasGradTensor.data(), biasGradTensor.dimension(0));
     }
 
     /**
      * @brief Обратное распространение: вычисление дельты для предыдущего слоя.
+     * @details delta_prev = full_conv(Delta_output, rot180(Kernel)). Это реализуется
+     *          как транспонированная свертка.
      */
-    static Tensor4f calculateNextDeltaConv(const KernelTensor& kernels, const Tensor4f& delta, const Tensor4f& prevActivationDerivative, u32 stride, u32 padding) {
-        // Это "полная" свертка дельты с повернутыми на 180 градусов ядрами
-        // TODO: Реализовать
-        return Tensor4f(); // Заглушка
+    static Tensor4f calculateNextDeltaConv(const KernelTensor& kernels, const Tensor4f& delta, const Tensor4f& prevActivationDerivative, u32 stride, PaddingMode paddingMode) {
+        auto rotatedKernels = kernels.reverse(std::array<bool, 4>{false, false, true, true});
+        auto shuffledKernels = rotatedKernels.shuffle(std::array<int, 4>{1, 0, 2, 3});
+
+        Tensor4f nextDeltaZ = _convolution(delta, shuffledKernels, 1, ConvolutionMode::FULL);
+
+        if (stride > 1) {
+            const auto& shape = nextDeltaZ.dimensions();
+            Eigen::array<Eigen::DenseIndex, 4> start_indices = {0, 0, 0, 0};
+            Eigen::array<Eigen::DenseIndex, 4> stop_indices = {shape[0], shape[1], shape[2], shape[3]};
+            Eigen::array<Eigen::DenseIndex, 4> strides_arr = {1, 1, static_cast<Eigen::DenseIndex>(stride), static_cast<Eigen::DenseIndex>(stride)};
+            nextDeltaZ = nextDeltaZ.stridedSlice(start_indices, stop_indices, strides_arr);
+        }
+
+        const auto& prevShape = prevActivationDerivative.dimensions();
+        Eigen::array<Eigen::DenseIndex, 4> start_indices = {0, 0, 0, 0};
+        Eigen::array<Eigen::DenseIndex, 4> slice_sizes = {prevShape[0], prevShape[1], prevShape[2], prevShape[3]};
+        nextDeltaZ = nextDeltaZ.slice(start_indices, slice_sizes);
+
+        return nextDeltaZ * prevActivationDerivative;
     }
+
 
     /**
      * @brief Обновление весов (ядер) для сверточного слоя.
@@ -218,22 +275,16 @@ struct CpuEigenPolicy {
                                           .slice(std::array<Eigen::DenseIndex, 2>{h_start, w_start},
                                                  std::array<Eigen::DenseIndex, 2>{poolSize, poolSize});
 
-                        Eigen::Index maxIndex_local; // Создаем локальную переменную для сохранения индекса максимума
+                        Eigen::Tensor<f32, 0, Eigen::RowMajor> maxValTensor = window.maximum();
+                        output(n, c, i, j) = maxValTensor();
 
-                        // ИСПРАВЛЕНО: Создаем 0-мерный тензор для хранения скалярного результата.
-                        // Присваивание выражения window.maximum(maxIndex_local) этому 0-мерному тензору
-                        // принудительно выполнит вычисление максимума и сохранит его значение,
-                        // а также заполнит maxIndex_local.
-                        Eigen::Tensor<f32, 0, Eigen::RowMajor, Eigen::DenseIndex> maxValScalar;
-                        maxValScalar = window.maximum(maxIndex_local); // Вычисление происходит здесь
+                        Eigen::Tensor<Eigen::DenseIndex, 0, Eigen::RowMajor> maxIndexTensor = window.argmax();
+                        const Eigen::DenseIndex maxIndex_local = maxIndexTensor();
 
-                        // Теперь maxValScalar содержит скалярное значение максимума.
-                        // Извлекаем его с помощью оператора () для 0-мерных тензоров.
-                        output(n, c, i, j) = maxValScalar();
-
-                        // Сохраняем глобальный индекс в исходном тензоре, используя maxIndex_local
-                        Eigen::Index row = maxIndex_local / poolSize;
-                        Eigen::Index col = maxIndex_local % poolSize;
+                        // Сохраняем глобальный индекс в исходном тензоре
+                        Eigen::DenseIndex row = maxIndex_local / poolSize;
+                        Eigen::DenseIndex col = maxIndex_local % poolSize;
+                        indices(n, c, i, j) = (h_start + row) * inWidth + (w_start + col);
                         indices(n, c, i, j) = (h_start + row) * inWidth + (w_start + col);
                     }
                 }

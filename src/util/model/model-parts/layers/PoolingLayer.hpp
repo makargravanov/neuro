@@ -6,7 +6,7 @@
 #define POOLINGLAYER_HPP
 
 #include "../../../types/eigen_types.hpp"
-#include "../ComputePolicies.h"
+#include "../ComputePolicies.hpp"
 
 // Конфигурация для слоя пулинга
 struct PoolConfig {

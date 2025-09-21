@@ -5,7 +5,7 @@
 #ifndef FLATTENLAYER_HPP
 #define FLATTENLAYER_HPP
 #include "../../../types/eigen_types.hpp"
-#include "../ComputePolicies.h"
+#include "../ComputePolicies.hpp"
 
 template<typename ComputePolicy>
 class FlattenLayer {

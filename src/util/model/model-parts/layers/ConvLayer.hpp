@@ -8,14 +8,39 @@
 
 #include "../../../types/eigen_types.hpp"
 #include "../ActivationPolicies.hpp"
-#include "../ComputePolicies.h"
+#include "../ComputePolicies.hpp"
+
+
+enum class PaddingMode {
+    VALID, // Без паддинга, выходной размер уменьшается
+    SAME   // С паддингом, выходной размер сохраняется (при stride=1)
+};
 
 struct ConvConfig {
-    u32 inputChannels;
-    u32 outputChannels;
-    u32 kernelSize; // Предполагаем квадратные ядра
+    u32 inputChannels{};
+    u32 outputChannels{};
+    u32 kernelSize{}; // Предполагаем квадратные ядра
     u32 stride = 1;
     u32 padding = 0;
+    PaddingMode paddingMode = PaddingMode::VALID;
+
+    ConvConfig(u32 input_channels, u32 output_channels, u32 kernel_size, u32 stride, u32 padding,
+        PaddingMode padding_mode)
+        : inputChannels(input_channels),
+          outputChannels(output_channels),
+          kernelSize(kernel_size),
+          stride(stride),
+          padding(padding),
+          paddingMode(padding_mode) {
+    }
+    ConvConfig(u32 input_channels, u32 output_channels, u32 kernel_size, u32 stride,
+        PaddingMode padding_mode)
+        : inputChannels(input_channels),
+          outputChannels(output_channels),
+          kernelSize(kernel_size),
+          stride(stride),
+          paddingMode(padding_mode) {
+    }
 };
 
 template<typename ActivationPolicy, typename ComputePolicy>
@@ -31,12 +56,12 @@ class ConvLayer {
 public:
     ConvLayer(u32 inputHeight, u32 inputWidth, ConvConfig config) : _config(config) {
         // Инициализация весов случайными значениями
-        _kernels(std::array<Eigen::DenseIndex, 4>{
+        _kernels.resize(
             static_cast<Eigen::DenseIndex>(_config.outputChannels),
             static_cast<Eigen::DenseIndex>(_config.inputChannels),
             static_cast<Eigen::DenseIndex>(_config.kernelSize),
             static_cast<Eigen::DenseIndex>(_config.kernelSize)
-        });
+        );
         _kernels.setRandom();
         _kernels = _kernels * static_cast<f32>(
             std::sqrt(2.0 / (_config.inputChannels * _config.kernelSize * _config.kernelSize))
@@ -55,7 +80,7 @@ public:
         _lastInput = input;
 
         // 1. Выполнение свертки через ComputePolicy
-        Tensor4f z = ComputePolicy::convolution(input, _kernels, _biases, _config.stride, _config.padding);
+        Tensor4f z = ComputePolicy::convolution(input, _kernels, _biases, _config.stride, _config.paddingMode);
 
         // 2. Применение поэлементной функции активации
         _lastOutput = ComputePolicy::template activate<ActivationPolicy>(z);

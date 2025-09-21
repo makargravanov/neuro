@@ -173,6 +173,8 @@
     <mapping directory="$PROJECT_DIR$/cmake-build-debug/_deps/boost-src/tools/inspect" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/cmake-build-debug/_deps/boost-src/tools/litre" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/cmake-build-debug/_deps/boost-src/tools/quickbook" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/cmake-build-debug/_deps/eigen-src" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/cmake-build-debug/_deps/nlohmann-json-src" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/cmake-build-release/_deps/boost-src" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/cmake-build-release/_deps/boost-src/libs/accumulators" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/cmake-build-release/_deps/boost-src/libs/algorithm" vcs="Git" />
@@ -344,5 +346,7 @@
     <mapping directory="$PROJECT_DIR$/cmake-build-release/_deps/boost-src/tools/inspect" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/cmake-build-release/_deps/boost-src/tools/litre" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/cmake-build-release/_deps/boost-src/tools/quickbook" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/cmake-build-release/_deps/eigen-src" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/cmake-build-release/_deps/nlohmann-json-src" vcs="Git" />
   </component>
 </project>

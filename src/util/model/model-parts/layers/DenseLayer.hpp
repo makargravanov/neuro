@@ -3,7 +3,6 @@
 #define LAYER_HPP
 
 #include "../../../types/eigen_types.hpp"
-#include "../../../logging.hpp"
 
 template<typename ActivationPolicy, typename ComputePolicy>
 class DenseLayer {
@@ -27,7 +26,6 @@ public:
      * @return Выходные данные этого слоя.
      */
     DenseOutput activate(const DenseInput& input) {
-        Log::Logger().debug("debug bad_alloc");
         _lastInput = input;
 
         // 1. Линейное преобразование с использованием политики вычислений

@@ -68,37 +68,31 @@ public:
 
     OutputType run(const InputType& input) {
         if (_layers.empty()) throw std::invalid_argument("Network has no layers.");
-        Log::Logger().debug("debug bad_alloc");
+
         _lastLayerOutputs.clear();
-        Log::Logger().debug("debug bad_alloc");
         _lastLayerOutputs.reserve(_layers.size());
-        Log::Logger().debug("debug bad_alloc");
+
         OutputType currentData = input;
-        Log::Logger().debug("debug bad_alloc");
+
         for (auto& layerVariant : _layers) {
             currentData = std::visit([&](auto& layer) -> OutputType {
                 return std::visit([&](const auto& inputData) -> OutputType {
                     // Проверяем во время компиляции, может ли текущий слой обработать текущий тип данных
                     if constexpr (std::is_invocable_r_v<OutputType, decltype(&std::decay_t<decltype(layer)>::activate), decltype(layer), decltype(inputData)>) {
-                        Log::Logger().withFunction().debug("debug bad_alloc");
                         return layer.activate(inputData);
                     } else {
                         throw std::runtime_error("Layer sequence mismatch: A layer received an incompatible input type.");
                     }
                 }, currentData);
             }, layerVariant);
-            Log::Logger().debug("debug bad_alloc");
             _lastLayerOutputs.push_back(currentData);
-            Log::Logger().debug("debug bad_alloc");
         }
         return currentData;
     }
 
     f32 train(const InputType& inputBatch, const Output& expectedBatch, f32 learningRate, const AnyLossPolicy& lossFunction) {
-        Log::Logger().debug("debug bad_alloc");
         // --- Прямое распространение ---
         OutputType actualOutputVariant = run(inputBatch);
-        Log::Logger().debug("debug bad_alloc");
         f32 loss = std::visit([&](const auto& policy) {
             // Мы предполагаем, что ошибка считается только для полносвязных выходов
             const auto& actualDenseOutput = std::get<DenseOutput>(actualOutputVariant);
@@ -106,7 +100,7 @@ public:
         }, lossFunction);
         // --- Обратное распространение ---
         OutputType delta;
-        Log::Logger().debug("debug bad_alloc");
+
         // 1. Вычисление дельты для последнего слоя
         std::visit([&](const auto& lastLayer) {
             using LastLayerType = std::decay_t<decltype(lastLayer)>;
@@ -135,7 +129,7 @@ public:
                 throw std::runtime_error("The last layer must be a Dense or Flatten layer to be used with the specified loss functions.");
             }
         }, _layers.back());
-        Log::Logger().debug("debug bad_alloc");
+
 
         // 2. Распространение ошибки назад по слоям
         for (i64 j = _layers.size() - 1; j >= 0; --j) {

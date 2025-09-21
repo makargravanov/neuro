@@ -18,10 +18,20 @@
  */
 struct CpuEigenPolicy {
     enum class ConvolutionMode { VALID, SAME, FULL };
-    /**
-     * @brief Универсальная вспомогательная функция свертки.
-     * @details Инкапсулирует логику паддинга для разных режимов.
-     */
+
+    template<typename T, int Rank, int Options>
+    static std::string getTensorDims(const Eigen::Tensor<T, Rank, Options>& tensor) {
+        std::string dims = "[";
+        for (int i = 0; i < Rank; ++i) {
+            dims += std::to_string(tensor.dimension(i));
+            if (i < Rank - 1) {
+                dims += ", ";
+            }
+        }
+        dims += "]";
+        return dims;
+    }
+
     static Tensor4f _convolution(const Tensor4f& input, const KernelTensor& kernel, u32 stride, ConvolutionMode mode) {
         Tensor4f paddedInput = input;
         const Eigen::DenseIndex inHeight = input.dimension(2);
@@ -50,8 +60,29 @@ struct CpuEigenPolicy {
         }
         // для VALID используется исходный input
 
+        // --- ИСПРАВЛЕНИЕ НАЧИНАЕТСЯ ЗДЕСЬ ---
+
+        // 1. Преобразуем тензоры в формат, ожидаемый Eigen (NHWC и HWIO)
+        // NCHW -> NHWC
+        Eigen::array<int, 4> nchw_to_nhwc = {0, 2, 3, 1};
+        auto input_nhwc = paddedInput.shuffle(nchw_to_nhwc);
+
+        // [C_out, C_in, kH, kW] -> [kH, kW, C_in, C_out]
+        Eigen::array<int, 4> oihw_to_hwio = {2, 3, 1, 0};
+        auto kernel_hwio = kernel.shuffle(oihw_to_hwio);
+
+        // 2. Выполняем свертку
         Eigen::array<Eigen::DenseIndex, 2> strides = {static_cast<Eigen::DenseIndex>(stride), static_cast<Eigen::DenseIndex>(stride)};
-        return paddedInput.convolve(kernel, strides);
+
+        // Log::Logger().debug("Convolving NHWC input dims {} with HWIO kernel dims {}",
+        //                   getTensorDims(input_nhwc), getTensorDims(kernel_hwio));
+
+        auto output_nhwc = input_nhwc.convolve(kernel_hwio, strides);
+
+        // 3. Преобразуем результат обратно в NCHW
+        // NHWC -> NCHW
+        Eigen::array<int, 4> nhwc_to_nchw = {0, 3, 1, 2};
+        return output_nhwc.shuffle(nhwc_to_nchw);
     }
 
     // ===================================================================================

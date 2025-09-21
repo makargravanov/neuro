@@ -175,7 +175,7 @@ struct CpuEigenPolicy {
 
         // Градиент по весам - это свертка входа с дельтой.
         // Режим паддинга здесь противоположен прямому проходу.
-        ConvolutionMode mode = (paddingMode == PaddingMode::SAME) ? ConvolutionMode::VALID : ConvolutionMode::SAME;
+        ConvolutionMode mode = (paddingMode == PaddingMode::SAME) ? ConvolutionMode::SAME : ConvolutionMode::VALID;
 
         // Для вычисления градиента мы используем дилатацию (dilation) входа, чтобы эмулировать stride
         Tensor4f dilatedInput = shuffledInput;

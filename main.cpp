@@ -158,8 +158,8 @@ i32 main() {
     Eigen::setNbThreads(std::thread::hardware_concurrency());
     Log::Logger().info("Eigen is configured to use up to {} threads.", Eigen::nbThreads());
 
-    runRideStatusPrediction(); // Проверка старого функционала с новым API
-    //runLineDetectorCNN();      // Проверка нового функционала CNN
+    //runRideStatusPrediction(); // Проверка старого функционала с новым API
+    runLineDetectorCNN();      // Проверка нового функционала CNN
 
     return 0;
 }

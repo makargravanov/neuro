@@ -22,8 +22,8 @@ public:
      */
     DenseOutput activate(const Tensor4f& input) {
         _lastInputShape = input.dimensions();
-        // Делегируем операцию изменения формы политике вычислений
-        return ComputePolicy::flatten(input);
+        _lastOutput = ComputePolicy::flatten(input);
+        return _lastOutput;
     }
 
     [[nodiscard]] const auto& getLastInputShape() const { return _lastInputShape; }

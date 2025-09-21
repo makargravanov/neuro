@@ -6,6 +6,7 @@
 #include <unsupported/Eigen/CXX11/Tensor>
 #include "../../types/eigen_types.hpp"
 #include "ActivationPolicies.hpp"
+#include "layers/PoolingLayer.hpp"
 
 /**
  * @struct CpuEigenPolicy
@@ -247,8 +248,9 @@ struct CpuEigenPolicy {
      * @brief Прямое распространение: Max Pooling.
      * @return Пара: результат пулинга и тензор с индексами максимальных элементов.
      */
-    static std::pair<Tensor4f, Eigen::Tensor<Eigen::DenseIndex, 4>>
-    maxPooling(const Tensor4f& input, u32 poolSize, u32 stride) {
+    template<typename CP>
+    static std::pair<Tensor4f, typename PoolingLayer<CP>::MaxIndicesTensor>
+    maxPooling(const Tensor4f& input, u32 poolSize, u32 stride)  {
         const Eigen::DenseIndex batchSize = input.dimension(0);
         const Eigen::DenseIndex channels = input.dimension(1);
         const Eigen::DenseIndex inHeight = input.dimension(2);
@@ -289,7 +291,7 @@ struct CpuEigenPolicy {
                 }
             }
         }
-        return std::make_pair(output, indices);;
+        return std::make_pair(output, indices);
     }
 
     /**

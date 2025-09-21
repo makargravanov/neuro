@@ -21,7 +21,8 @@ class PoolingLayer {
     Tensor4f _lastInput;
     Tensor4f _lastOutput;
     // Маска для хранения индексов максимальных элементов для backpropagation
-    Eigen::Tensor<Eigen::DenseIndex, 4, Eigen::RowMajor> _maxIndices;
+    using MaxIndicesTensor = Eigen::Tensor<Eigen::DenseIndex, 4, Eigen::RowMajor>;
+    MaxIndicesTensor _maxIndices;
 
 public:
     explicit PoolingLayer(PoolConfig config) : _config(config) {}
@@ -35,7 +36,7 @@ public:
         _lastInput = input;
 
         // Делегируем вычисление политике, которая вернет и результат, и маску
-        auto [output, indices] = ComputePolicy::maxPooling(input, _config.poolSize, _config.stride);
+        auto [output, indices] = ComputePolicy::template maxPooling<ComputePolicy>(input, _config.poolSize, _config.stride);
         _lastOutput = output;
         _maxIndices = indices;
 

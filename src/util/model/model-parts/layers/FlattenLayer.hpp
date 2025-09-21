@@ -11,7 +11,7 @@ template<typename ComputePolicy>
 class FlattenLayer {
     // Сохраняем исходные размеры для обратного распространения
     std::array<Eigen::DenseIndex, 4> _lastInputShape;
-
+    DenseOutput _lastOutput;
 public:
     FlattenLayer() = default;
 
@@ -27,5 +27,9 @@ public:
     }
 
     [[nodiscard]] const auto& getLastInputShape() const { return _lastInputShape; }
+
+    [[nodiscard]] DenseOutput activationDerivative() const {
+        return DenseOutput::Ones(_lastOutput.rows(), _lastOutput.cols());
+    }
 };
 #endif //FLATTENLAYER_HPP

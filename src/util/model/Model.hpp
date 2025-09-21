@@ -174,6 +174,7 @@ public:
         return *this;
     }
 
+
     Model& train(u32 epochs, f32 learningRate, u32 batchSize, std::optional<LossType> lossTypeOpt = std::nullopt) {
         if (!network) throw std::runtime_error("Network must be configured before training.");
         Log::Logger().info("--- 4. Starting training (batch size: {}) ---", batchSize);
@@ -222,7 +223,7 @@ public:
                     Tensor4f batchTensor(currentBatchSize, _inputChannels, _inputHeight, _inputWidth);
                     for (u32 j = 0; j < currentBatchSize; ++j) {
                         // Преобразуем вектор в тензор
-                        batchTensor.chip(j, 0) = Eigen::TensorMap<const Eigen::Tensor<const f32, 3>> (
+                        batchTensor.chip(j, 0) = Eigen::TensorMap<const Eigen::Tensor<const f32, 3, Eigen::RowMajor>> (
                             trainingInputs[indices[i + j]].data(),
                             _inputChannels, _inputHeight, _inputWidth
                         );
@@ -265,7 +266,7 @@ public:
         InputType networkInput;
         if (_isCnn) {
             Tensor4f inputTensor(1, _inputChannels, _inputHeight, _inputWidth);
-            inputTensor.chip(0, 0) = Eigen::TensorMap<const Eigen::Tensor<const f32, 3>>(
+            inputTensor.chip(0, 0) = Eigen::TensorMap<const Eigen::Tensor<const f32, 3, Eigen::RowMajor>>(
                 processedInput.data(), _inputChannels, _inputHeight, _inputWidth
             );
             networkInput = inputTensor;

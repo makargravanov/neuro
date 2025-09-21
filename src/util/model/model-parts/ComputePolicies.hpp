@@ -258,7 +258,7 @@ struct CpuEigenPolicy {
         const Eigen::DenseIndex outWidth = (inWidth - poolSize) / stride + 1;
 
         Tensor4f output(batchSize, channels, outHeight, outWidth);
-        Eigen::Tensor<Eigen::DenseIndex, 4> indices(batchSize, channels, outHeight, outWidth);
+        Eigen::Tensor<Eigen::DenseIndex, 4, Eigen::RowMajor> indices(batchSize, channels, outHeight, outWidth);
 
         // TODO: Эту операцию можно значительно оптимизировать с помощью Eigen::patch и reductions,
         // но для наглядности приведена простая реализация.
@@ -289,7 +289,7 @@ struct CpuEigenPolicy {
                 }
             }
         }
-        return {output, indices};
+        return std::make_pair(output, indices);;
     }
 
     /**

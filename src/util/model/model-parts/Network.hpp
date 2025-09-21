@@ -93,26 +93,36 @@ public:
     void train(const InputType& inputBatch, const Output& expectedBatch, f32 learningRate, const AnyLossPolicy& lossFunction) {
         // --- Прямое распространение ---
         OutputType actualOutputVariant = run(inputBatch);
-        // Для вычисления потерь предполагаем, что выход сети - это DenseOutput
-        const auto& actualOutput = std::get<DenseOutput>(actualOutputVariant);
 
         // --- Обратное распространение ---
-        OutputType delta; // Теперь дельта - это тоже variant
+        OutputType delta;
 
         // 1. Вычисление дельты для последнего слоя
         std::visit([&](const auto& lastLayer) {
             using LastLayerType = std::decay_t<decltype(lastLayer)>;
-            bool isSoftmaxWithCCE = std::holds_alternative<CategoricalCrossEntropyPolicy>(lossFunction) &&
-                                    std::is_same_v<LastLayerType, DenseLayer<SoftmaxPolicy, ComputePolicy>>;
 
-            Output lossDerivative = std::visit([&](const auto& policy) {
-                return policy.derivative(actualOutput, expectedBatch);
-            }, lossFunction);
+            if constexpr (
+                std::is_same_v<LastLayerType, DenseLayer<SigmoidPolicy, ComputePolicy>> ||
+                std::is_same_v<LastLayerType, DenseLayer<LinearPolicy, ComputePolicy>> ||
+                std::is_same_v<LastLayerType, DenseLayer<ReLUPolicy, ComputePolicy>> ||
+                std::is_same_v<LastLayerType, DenseLayer<SoftmaxPolicy, ComputePolicy>> ||
+                std::is_same_v<LastLayerType, FlattenLayer<ComputePolicy>>
+            ) {
+                const auto& actualDenseOutput = std::get<DenseOutput>(actualOutputVariant);
+                bool isSoftmaxWithCCE = std::holds_alternative<CategoricalCrossEntropyPolicy>(lossFunction) &&
+                                        std::is_same_v<LastLayerType, DenseLayer<SoftmaxPolicy, ComputePolicy>>;
 
-            if (isSoftmaxWithCCE) {
-                delta = lossDerivative; // Упрощенная производная
+                Output lossDerivative = std::visit([&](const auto& policy) {
+                    return policy.derivative(actualDenseOutput, expectedBatch);
+                }, lossFunction);
+
+                if (isSoftmaxWithCCE) {
+                    delta = lossDerivative;
+                } else {
+                    delta = ComputePolicy::elementwiseProduct(lossDerivative, lastLayer.activationDerivative());
+                }
             } else {
-                delta = ComputePolicy::elementwiseProduct(lossDerivative, lastLayer.activationDerivative());
+                throw std::runtime_error("The last layer must be a Dense or Flatten layer to be used with the specified loss functions.");
             }
         }, _layers.back());
 
@@ -125,9 +135,12 @@ public:
             delta = std::visit([&](auto& layer) -> OutputType {
                 using LayerT = std::decay_t<decltype(layer)>;
 
-                // --- Обрабатываем каждый тип слоя индивидуально ---
-
-                if constexpr (std::is_base_of_v<DenseLayer<SigmoidPolicy, ComputePolicy>, LayerT>) {
+                if constexpr (
+                    std::is_same_v<LayerT, DenseLayer<SigmoidPolicy, ComputePolicy>> ||
+                    std::is_same_v<LayerT, DenseLayer<LinearPolicy, ComputePolicy>> ||
+                    std::is_same_v<LayerT, DenseLayer<ReLUPolicy, ComputePolicy>> ||
+                    std::is_same_v<LayerT, DenseLayer<SoftmaxPolicy, ComputePolicy>>
+                ) {
                     auto& d = std::get<DenseOutput>(delta);
                     const auto& prevOut = std::get<DenseOutput>(prevLayerOutputVariant);
 
@@ -137,11 +150,15 @@ public:
                     ComputePolicy::updateBiases(layer.getBiases(), learningRate, biasGrad);
 
                     if (j > 0) {
-                        auto prevActivationDerivative = std::visit([](auto& prevLayer){ return prevLayer.activationDerivative(); }, _layers[j-1]);
-                        return ComputePolicy::calculateNextDelta(layer.getWeights(), d, std::get<DenseOutput>(prevActivationDerivative));
+                        OutputType prevActivationDerivativeVariant = std::visit([](auto& prevLayer) -> OutputType { return prevLayer.activationDerivative(); }, _layers[j-1]);
+                        const auto& prevAD = std::get<DenseOutput>(prevActivationDerivativeVariant);
+                        return ComputePolicy::calculateNextDelta(layer.getWeights(), d, prevAD);
                     }
                 }
-                else if constexpr (std::is_base_of_v<ConvLayer<ReLUPolicy, ComputePolicy>, LayerT>) {
+                else if constexpr (
+                    std::is_same_v<LayerT, ConvLayer<ReLUPolicy, ComputePolicy>> ||
+                    std::is_same_v<LayerT, ConvLayer<LinearPolicy, ComputePolicy>>
+                ) {
                     auto& d = std::get<Tensor4f>(delta);
                     const auto& prevOut = std::get<Tensor4f>(prevLayerOutputVariant);
                     const auto& config = layer.getConfig();
@@ -152,8 +169,9 @@ public:
                     ComputePolicy::updateBiases(layer.getBiases(), learningRate, biasGrad);
 
                     if (j > 0) {
-                        auto prevActivationDerivative = std::visit([](auto& prevLayer){ return prevLayer.activationDerivative(); }, _layers[j-1]);
-                        return ComputePolicy::calculateNextDeltaConv(layer.getKernels(), d, std::get<Tensor4f>(prevActivationDerivative), config.stride, config.paddingMode);
+                        OutputType prevActivationDerivativeVariant = std::visit([](auto& prevLayer) -> OutputType { return prevLayer.activationDerivative(); }, _layers[j-1]);
+                        const auto& prevAD = std::get<Tensor4f>(prevActivationDerivativeVariant);
+                        return ComputePolicy::calculateNextDeltaConv(layer.getKernels(), d, prevAD, config.stride, config.paddingMode);
                     }
                 }
                 else if constexpr (std::is_same_v<LayerT, PoolingLayer<ComputePolicy>>) {
@@ -165,7 +183,7 @@ public:
                     return ComputePolicy::unflatten(d, layer.getLastInputShape());
                 }
 
-                return delta; // Возвращаем дельту без изменений, если это последний слой
+                return delta;
             }, currentLayerVariant);
         }
     }

@@ -47,5 +47,9 @@ public:
     [[nodiscard]] const Tensor4f& getLastInput() const { return _lastInput; }
     [[nodiscard]] const auto& getMaxIndices() const { return _maxIndices; }
     [[nodiscard]] const PoolConfig& getConfig() const { return _config; }
+
+    [[nodiscard]] Tensor4f activationDerivative() const {
+        return _lastOutput.constant(1.0f);
+    }
 };
 #endif //POOLINGLAYER_HPP

@@ -35,6 +35,7 @@ public:
      * @return 4D-тензор (N, C, H_out, W_out).
      */
     Tensor4f activate(const Tensor4f& input) {
+        Log::Logger().debug("debug bad_alloc");
         _lastInput = input;
 
         // Делегируем вычисление политике, которая вернет и результат, и маску

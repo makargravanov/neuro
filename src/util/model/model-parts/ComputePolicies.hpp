@@ -23,19 +23,26 @@ struct CpuEigenPolicy {
      * @details Инкапсулирует логику паддинга для разных режимов.
      */
     static Tensor4f _convolution(const Tensor4f& input, const KernelTensor& kernel, u32 stride, ConvolutionMode mode) {
+        Log::Logger().debug("debug bad_alloc");
         Tensor4f paddedInput = input;
+        Log::Logger().debug("debug bad_alloc");
         const Eigen::DenseIndex inHeight = input.dimension(2);
         const Eigen::DenseIndex inWidth = input.dimension(3);
         const Eigen::DenseIndex kernelHeight = kernel.dimension(2);
         const Eigen::DenseIndex kernelWidth = kernel.dimension(3);
+        Log::Logger().debug("debug bad_alloc");
 
         if (mode == ConvolutionMode::FULL) {
+            Log::Logger().debug("debug bad_alloc");
             const Eigen::DenseIndex padH = kernelHeight - 1;
             const Eigen::DenseIndex padW = kernelWidth - 1;
+            Log::Logger().debug("debug bad_alloc");
             paddedInput = input.pad(std::array<std::pair<Eigen::DenseIndex, Eigen::DenseIndex>, 4>{
                 std::pair{0, 0}, std::pair{0, 0}, std::pair{padH, padH}, std::pair{padW, padW}
             });
+            Log::Logger().debug("debug bad_alloc");
         } else if (mode == ConvolutionMode::SAME) {
+            Log::Logger().debug("debug bad_alloc");
             const Eigen::DenseIndex outHeight = (inHeight + stride - 1) / stride;
             const Eigen::DenseIndex outWidth = (inWidth + stride - 1) / stride;
             const Eigen::DenseIndex padAlongHeight = std::max((outHeight - 1) * stride + kernelHeight - inHeight, 0LL);
@@ -44,13 +51,16 @@ struct CpuEigenPolicy {
             const Eigen::DenseIndex padBottom = padAlongHeight - padTop;
             const Eigen::DenseIndex padLeft = padAlongWidth / 2;
             const Eigen::DenseIndex padRight = padAlongWidth - padLeft;
+            Log::Logger().debug("debug bad_alloc");
             paddedInput = input.pad(std::array<std::pair<Eigen::DenseIndex, Eigen::DenseIndex>, 4>{
                 std::pair{0, 0}, std::pair{0, 0}, std::pair{padTop, padBottom}, std::pair{padLeft, padRight}
             });
+            Log::Logger().debug("debug bad_alloc");
         }
         // для VALID используется исходный input
-
+        Log::Logger().debug("debug bad_alloc");
         Eigen::array<Eigen::DenseIndex, 2> strides = {static_cast<Eigen::DenseIndex>(stride), static_cast<Eigen::DenseIndex>(stride)};
+        Log::Logger().debug("debug bad_alloc");
         return paddedInput.convolve(kernel, strides);
     }
 
@@ -148,19 +158,23 @@ struct CpuEigenPolicy {
      * @brief Прямое распространение: операция свертки.
      */
     static Tensor4f convolution(const Tensor4f& input, const KernelTensor& kernels, const BiasVector& biases, u32 stride, PaddingMode paddingMode) {
+        Log::Logger().debug("debug bad_alloc");
         ConvolutionMode mode = (paddingMode == PaddingMode::SAME) ? ConvolutionMode::SAME : ConvolutionMode::VALID;
+        Log::Logger().debug("debug bad_alloc");
         Tensor4f output = _convolution(input, kernels, stride, mode);
-
+        Log::Logger().debug("debug bad_alloc");
         const Eigen::DenseIndex batchSize = output.dimension(0);
         const Eigen::DenseIndex outChannels = output.dimension(1);
         const Eigen::DenseIndex outHeight = output.dimension(2);
         const Eigen::DenseIndex outWidth = output.dimension(3);
-
+        Log::Logger().debug("debug bad_alloc");
         Tensor4f biasTensor(1, outChannels, 1, 1);
         for(Eigen::DenseIndex i = 0; i < outChannels; ++i) {
             biasTensor(0, i, 0, 0) = biases(i);
         }
+        Log::Logger().debug("debug bad_alloc");
         Eigen::array<Eigen::DenseIndex, 4> bcast = {batchSize, 1, outHeight, outWidth};
+        Log::Logger().debug("debug bad_alloc");
         return output + biasTensor.broadcast(bcast);
     }
 

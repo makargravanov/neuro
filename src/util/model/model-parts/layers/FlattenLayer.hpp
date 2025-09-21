@@ -21,6 +21,7 @@ public:
      * @return 2D-матрица (N, C * H * W).
      */
     DenseOutput activate(const Tensor4f& input) {
+        Log::Logger().debug("debug bad_alloc");
         _lastInputShape = input.dimensions();
         _lastOutput = ComputePolicy::flatten(input);
         return _lastOutput;

@@ -73,14 +73,16 @@ public:
      * @return 4D-тензор (N, C_out, H_out, W_out).
      */
     Tensor4f activate(const Tensor4f& input) {
+        Log::Logger().debug("debug bad_alloc");
         _lastInput = input;
 
+        Log::Logger().debug("debug bad_alloc");
         // 1. Выполнение свертки через ComputePolicy
         Tensor4f z = ComputePolicy::convolution(input, _kernels, _biases, _config.stride, _config.paddingMode);
-
+        Log::Logger().debug("debug bad_alloc");
         // 2. Применение поэлементной функции активации
         _lastOutput = ComputePolicy::template activate<ActivationPolicy>(z);
-
+        Log::Logger().debug("debug bad_alloc");
         return _lastOutput;
     }
 

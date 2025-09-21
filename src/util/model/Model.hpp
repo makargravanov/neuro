@@ -204,47 +204,55 @@ public:
             Log::Logger().info("Using Mean Squared Error loss function.");
         }
 
+        Log::Logger().debug("debug bad_alloc");
         const u32 numSamples = trainingInputs.size();
         std::vector<u32> indices(numSamples);
         std::iota(indices.begin(), indices.end(), 0);
-
+        Log::Logger().debug("debug bad_alloc");
         for (u32 epoch = 0; epoch < epochs; ++epoch) {
             std::random_device rd;
             std::mt19937 g(rd());
             std::shuffle(indices.begin(), indices.end(), g);
-
+            Log::Logger().debug("debug bad_alloc");
             f32 totalError = 0;
             u32 batchCount = 0;
             for (u32 i = 0; i < numSamples; i += batchSize) {
                 u32 currentBatchSize = std::min(batchSize, numSamples - i);
-
+                Log::Logger().debug("debug bad_alloc");
                 InputType inputBatch;
                 // Готовим батч в зависимости от типа сети
                 if (_isCnn) {
                     Tensor4f batchTensor(currentBatchSize, _inputChannels, _inputHeight, _inputWidth);
+                    Log::Logger().debug("debug bad_alloc");
                     for (u32 j = 0; j < currentBatchSize; ++j) {
                         // Преобразуем вектор в тензор
+                        Log::Logger().debug("debug bad_alloc");
                         batchTensor.chip(j, 0) = Eigen::TensorMap<const Eigen::Tensor<const f32, 3, Eigen::RowMajor>> (
                             trainingInputs[indices[i + j]].data(),
                             _inputChannels, _inputHeight, _inputWidth
                         );
+                        Log::Logger().debug("debug bad_alloc");
                     }
+                    Log::Logger().debug("debug bad_alloc");
                     inputBatch = batchTensor;
                 } else {
+                    Log::Logger().debug("debug bad_alloc");
                     DenseInput batchMatrix(_inputVectorSize, currentBatchSize);
                     for (u32 j = 0; j < currentBatchSize; ++j) {
                         batchMatrix.col(j) = trainingInputs[indices[i + j]];
                     }
+                    Log::Logger().debug("debug bad_alloc");
                     inputBatch = batchMatrix;
                 }
-
+                Log::Logger().debug("debug bad_alloc");
                 Output expectedBatch(_outputSize, currentBatchSize);
                 for (u32 j = 0; j < currentBatchSize; ++j) {
                     expectedBatch.col(j) = trainingOutputs[indices[i + j]];
                 }
-
+                Log::Logger().debug("debug bad_alloc");
                 totalError += network->train(inputBatch, expectedBatch, learningRate, lossPolicy);
                 batchCount++;
+                Log::Logger().debug("debug bad_alloc");
             }
             if ((epoch + 1) % 10 == 0) {
                 f32 avgError = (batchCount > 0) ? (totalError / batchCount) : 0.0f;

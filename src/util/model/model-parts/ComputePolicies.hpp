@@ -297,7 +297,7 @@ struct CpuEigenPolicy {
     /**
      * @brief Обратное распространение для Max Pooling.
      */
-    static Tensor4f maxPoolingBackward(const Tensor4f& delta, const Eigen::Tensor<Eigen::DenseIndex, 4>& maxIndices, const std::array<Eigen::DenseIndex, 4>& prevShape) {
+    static Tensor4f maxPoolingBackward(const Tensor4f& delta, const Eigen::Tensor<Eigen::DenseIndex, 4, Eigen::RowMajor>& maxIndices, const std::array<Eigen::DenseIndex, 4>& prevShape) {
         Tensor4f prevDelta(prevShape);
         prevDelta.setZero();
 

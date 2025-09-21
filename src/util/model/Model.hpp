@@ -214,6 +214,7 @@ public:
             std::shuffle(indices.begin(), indices.end(), g);
 
             f32 totalError = 0;
+            u32 batchCount = 0;
             for (u32 i = 0; i < numSamples; i += batchSize) {
                 u32 currentBatchSize = std::min(batchSize, numSamples - i);
 
@@ -242,12 +243,12 @@ public:
                     expectedBatch.col(j) = trainingOutputs[indices[i + j]];
                 }
 
-                network->train(inputBatch, expectedBatch, learningRate, lossPolicy);
-
-                // ... (вычисление ошибки пока уберем для простоты, т.к. train не возвращает loss)
+                totalError += network->train(inputBatch, expectedBatch, learningRate, lossPolicy);
+                batchCount++;
             }
-             if ((epoch + 1) % 10 == 0) {
-                 Log::Logger().debug("Epoch {}/{} complete.", epoch + 1, epochs);
+            if ((epoch + 1) % 10 == 0) {
+                f32 avgError = (batchCount > 0) ? (totalError / batchCount) : 0.0f;
+                Log::Logger().debug("Epoch {}/{} complete. Average Loss: {:.6f}", epoch + 1, epochs, avgError);
             }
         }
         Log::Logger().info("Training complete.\n");

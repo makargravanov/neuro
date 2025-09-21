@@ -90,10 +90,14 @@ public:
         return currentData;
     }
 
-    void train(const InputType& inputBatch, const Output& expectedBatch, f32 learningRate, const AnyLossPolicy& lossFunction) {
+    f32 train(const InputType& inputBatch, const Output& expectedBatch, f32 learningRate, const AnyLossPolicy& lossFunction) {
         // --- Прямое распространение ---
         OutputType actualOutputVariant = run(inputBatch);
-
+        f32 loss = std::visit([&](const auto& policy) {
+            // Мы предполагаем, что ошибка считается только для полносвязных выходов
+            const auto& actualDenseOutput = std::get<DenseOutput>(actualOutputVariant);
+            return policy.calculate(actualDenseOutput, expectedBatch);
+        }, lossFunction);
         // --- Обратное распространение ---
         OutputType delta;
 
@@ -186,6 +190,7 @@ public:
                 return delta;
             }, currentLayerVariant);
         }
+        return loss;
     }
 
 };

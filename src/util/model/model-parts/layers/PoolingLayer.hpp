@@ -20,10 +20,12 @@ class PoolingLayer {
 
     Tensor4f _lastInput;
     Tensor4f _lastOutput;
-    // Маска для хранения индексов максимальных элементов для backpropagation
-    using MaxIndicesTensor = Eigen::Tensor<Eigen::DenseIndex, 4, Eigen::RowMajor>;
-    MaxIndicesTensor _maxIndices;
 
+public:
+    using MaxIndicesTensor = Eigen::Tensor<Eigen::DenseIndex, 4, Eigen::RowMajor>;
+private:
+    // Маска для хранения индексов максимальных элементов для backpropagation
+    MaxIndicesTensor _maxIndices;
 public:
     explicit PoolingLayer(PoolConfig config) : _config(config) {}
 

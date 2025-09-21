@@ -1,4 +1,3 @@
-
 #ifndef NETWORK_HPP
 #define NETWORK_HPP
 
@@ -18,7 +17,6 @@
 
 template<typename ComputePolicy>
 class Network {
-
     using AnyLayer = std::variant<
         DenseLayer<SigmoidPolicy, ComputePolicy>,
         DenseLayer<LinearPolicy, ComputePolicy>,
@@ -33,21 +31,21 @@ class Network {
     std::vector<AnyLayer> _layers{};
     // Хранилище выходов каждого слоя для использования в backpropagation
     std::vector<OutputType> _lastLayerOutputs{};
-public:
 
+public:
     Network() = default;
 
     void addLayer(AnyLayer layer) {
         _layers.emplace_back(std::move(layer));
     }
 
-    explicit Network(u32 inputSize, const std::vector<std::pair<u32, PolicyType>>& layersConfig) {
+    explicit Network(u32 inputSize, const std::vector<std::pair<u32, PolicyType> >& layersConfig) {
         if (layersConfig.empty()) {
             throw std::invalid_argument("Layers config must not be empty");
         }
 
         u32 lastLayerSize = inputSize;
-        for (const auto& config : layersConfig) {
+        for (const auto& config: layersConfig) {
             u32 layerSize = config.first;
             const PolicyType& activation = config.second;
 
@@ -74,14 +72,16 @@ public:
 
         OutputType currentData = input;
 
-        for (auto& layerVariant : _layers) {
+        for (auto& layerVariant: _layers) {
             currentData = std::visit([&](auto& layer) -> OutputType {
                 return std::visit([&](const auto& inputData) -> OutputType {
                     // Проверяем во время компиляции, может ли текущий слой обработать текущий тип данных
-                    if constexpr (std::is_invocable_r_v<OutputType, decltype(&std::decay_t<decltype(layer)>::activate), decltype(layer), decltype(inputData)>) {
+                    if constexpr (std::is_invocable_r_v<OutputType, decltype(&std::decay_t<decltype(layer)>::activate),
+                        decltype(layer), decltype(inputData)>) {
                         return layer.activate(inputData);
                     } else {
-                        throw std::runtime_error("Layer sequence mismatch: A layer received an incompatible input type.");
+                        throw std::runtime_error(
+                            "Layer sequence mismatch: A layer received an incompatible input type.");
                     }
                 }, currentData);
             }, layerVariant);
@@ -90,12 +90,17 @@ public:
         return currentData;
     }
 
-    f32 train(const InputType& inputBatch, const Output& expectedBatch, f32 learningRate, const AnyLossPolicy& lossFunction) {
+    f32 train(const InputType& inputBatch, const Output& expectedBatch, f32 learningRate,
+              const AnyLossPolicy& lossFunction) {
         // --- Прямое распространение ---
+
         OutputType actualOutputVariant = run(inputBatch);
         f32 loss = std::visit([&](const auto& policy) {
             // Мы предполагаем, что ошибка считается только для полносвязных выходов
             const auto& actualDenseOutput = std::get<DenseOutput>(actualOutputVariant);
+            auto actual = actualDenseOutput.sum();
+
+            Log::Logger().debug("Network output sum before loss: {}", actual);
             return policy.calculate(actualDenseOutput, expectedBatch);
         }, lossFunction);
         // --- Обратное распространение ---
@@ -106,15 +111,15 @@ public:
             using LastLayerType = std::decay_t<decltype(lastLayer)>;
 
             if constexpr (
-                std::is_same_v<LastLayerType, DenseLayer<SigmoidPolicy, ComputePolicy>> ||
-                std::is_same_v<LastLayerType, DenseLayer<LinearPolicy, ComputePolicy>> ||
-                std::is_same_v<LastLayerType, DenseLayer<ReLUPolicy, ComputePolicy>> ||
-                std::is_same_v<LastLayerType, DenseLayer<SoftmaxPolicy, ComputePolicy>> ||
-                std::is_same_v<LastLayerType, FlattenLayer<ComputePolicy>>
+                std::is_same_v<LastLayerType, DenseLayer<SigmoidPolicy, ComputePolicy> > ||
+                std::is_same_v<LastLayerType, DenseLayer<LinearPolicy, ComputePolicy> > ||
+                std::is_same_v<LastLayerType, DenseLayer<ReLUPolicy, ComputePolicy> > ||
+                std::is_same_v<LastLayerType, DenseLayer<SoftmaxPolicy, ComputePolicy> > ||
+                std::is_same_v<LastLayerType, FlattenLayer<ComputePolicy> >
             ) {
                 const auto& actualDenseOutput = std::get<DenseOutput>(actualOutputVariant);
                 bool isSoftmaxWithCCE = std::holds_alternative<CategoricalCrossEntropyPolicy>(lossFunction) &&
-                                        std::is_same_v<LastLayerType, DenseLayer<SoftmaxPolicy, ComputePolicy>>;
+                                        std::is_same_v<LastLayerType, DenseLayer<SoftmaxPolicy, ComputePolicy> >;
 
                 Output lossDerivative = std::visit([&](const auto& policy) {
                     return policy.derivative(actualDenseOutput, expectedBatch);
@@ -126,10 +131,10 @@ public:
                     delta = ComputePolicy::elementwiseProduct(lossDerivative, lastLayer.activationDerivative());
                 }
             } else {
-                throw std::runtime_error("The last layer must be a Dense or Flatten layer to be used with the specified loss functions.");
+                throw std::runtime_error(
+                    "The last layer must be a Dense or Flatten layer to be used with the specified loss functions.");
             }
         }, _layers.back());
-
 
         // 2. Распространение ошибки назад по слоям
         for (i64 j = _layers.size() - 1; j >= 0; --j) {
@@ -140,10 +145,10 @@ public:
                 using LayerT = std::decay_t<decltype(layer)>;
 
                 if constexpr (
-                    std::is_same_v<LayerT, DenseLayer<SigmoidPolicy, ComputePolicy>> ||
-                    std::is_same_v<LayerT, DenseLayer<LinearPolicy, ComputePolicy>> ||
-                    std::is_same_v<LayerT, DenseLayer<ReLUPolicy, ComputePolicy>> ||
-                    std::is_same_v<LayerT, DenseLayer<SoftmaxPolicy, ComputePolicy>>
+                    std::is_same_v<LayerT, DenseLayer<SigmoidPolicy, ComputePolicy> > ||
+                    std::is_same_v<LayerT, DenseLayer<LinearPolicy, ComputePolicy> > ||
+                    std::is_same_v<LayerT, DenseLayer<ReLUPolicy, ComputePolicy> > ||
+                    std::is_same_v<LayerT, DenseLayer<SoftmaxPolicy, ComputePolicy> >
                 ) {
                     auto& d = std::get<DenseOutput>(delta);
                     const auto& prevOut = std::get<DenseOutput>(prevLayerOutputVariant);
@@ -154,35 +159,57 @@ public:
                     ComputePolicy::updateBiases(layer.getBiases(), learningRate, biasGrad);
 
                     if (j > 0) {
-                        OutputType prevActivationDerivativeVariant = std::visit([](auto& prevLayer) -> OutputType { return prevLayer.activationDerivative(); }, _layers[j-1]);
+                        OutputType prevActivationDerivativeVariant = std::visit(
+                            [](auto& prevLayer) -> OutputType { return prevLayer.activationDerivative(); },
+                            _layers[j - 1]);
                         const auto& prevAD = std::get<DenseOutput>(prevActivationDerivativeVariant);
                         return ComputePolicy::calculateNextDelta(layer.getWeights(), d, prevAD);
                     }
-                }
-                else if constexpr (
-                    std::is_same_v<LayerT, ConvLayer<ReLUPolicy, ComputePolicy>> ||
-                    std::is_same_v<LayerT, ConvLayer<LinearPolicy, ComputePolicy>>
+                } else if constexpr (
+                    std::is_same_v<LayerT, ConvLayer<ReLUPolicy, ComputePolicy> > ||
+                    std::is_same_v<LayerT, ConvLayer<LinearPolicy, ComputePolicy> >
                 ) {
                     auto& d = std::get<Tensor4f>(delta);
                     const auto& prevOut = std::get<Tensor4f>(prevLayerOutputVariant);
                     const auto& config = layer.getConfig();
 
-                    KernelTensor kernelGrad = ComputePolicy::calculateKernelGradient(prevOut, d, config.stride, config.paddingMode);
+                    Eigen::Tensor<f32, 0, Eigen::RowMajor> dSumTensor = d.sum();
+                    Log::Logger().debug("Delta sum entering Conv backprop [layer {}]: {}", j,
+                                        static_cast<f32>(dSumTensor()));
+
+                    KernelTensor kernelGrad = ComputePolicy::calculateKernelGradient(
+                        prevOut, d, config.stride, config.paddingMode);
                     BiasVector biasGrad = ComputePolicy::calculateBiasGradient(d);
                     ComputePolicy::updateWeights(layer.getKernels(), learningRate, kernelGrad);
                     ComputePolicy::updateBiases(layer.getBiases(), learningRate, biasGrad);
 
+                    Eigen::Tensor<f32, 0, Eigen::RowMajor> kernelGradSumTensor = kernelGrad.sum();
+                    Log::Logger().debug("Kernel gradient sum after calculation: {}",
+                                        static_cast<f32>(kernelGradSumTensor()));
+
+
                     if (j > 0) {
-                        OutputType prevActivationDerivativeVariant = std::visit([](auto& prevLayer) -> OutputType { return prevLayer.activationDerivative(); }, _layers[j-1]);
+                        OutputType prevActivationDerivativeVariant = std::visit(
+                            [](auto& prevLayer) -> OutputType { return prevLayer.activationDerivative(); },
+                            _layers[j - 1]);
                         const auto& prevAD = std::get<Tensor4f>(prevActivationDerivativeVariant);
-                        return ComputePolicy::calculateNextDeltaConv(layer.getKernels(), d, prevAD, config.stride, config.paddingMode);
+
+                        auto nextDeltaVal = ComputePolicy::calculateNextDeltaConv(
+                            layer.getKernels(), d, prevAD, config.stride, config.paddingMode);
+
+                        // --- ЛОГ #3.3 ---
+                        Eigen::Tensor<f32, 0, Eigen::RowMajor> nextDeltaSumTensor = nextDeltaVal.sum();
+                        Log::Logger().debug("Next delta sum leaving Conv backprop: {}",
+                                            static_cast<f32>(nextDeltaSumTensor()));
+
+                        return ComputePolicy::calculateNextDeltaConv(layer.getKernels(), d, prevAD, config.stride,
+                                                                     config.paddingMode);
                     }
-                }
-                else if constexpr (std::is_same_v<LayerT, PoolingLayer<ComputePolicy>>) {
+                } else if constexpr (std::is_same_v<LayerT, PoolingLayer<ComputePolicy> >) {
                     auto& d = std::get<Tensor4f>(delta);
-                    return ComputePolicy::maxPoolingBackward(d, layer.getMaxIndices(), layer.getLastInput().dimensions());
-                }
-                else if constexpr (std::is_same_v<LayerT, FlattenLayer<ComputePolicy>>) {
+                    return ComputePolicy::maxPoolingBackward(d, layer.getMaxIndices(),
+                                                             layer.getLastInput().dimensions());
+                } else if constexpr (std::is_same_v<LayerT, FlattenLayer<ComputePolicy> >) {
                     auto& d = std::get<DenseOutput>(delta);
                     return ComputePolicy::unflatten(d, layer.getLastInputShape());
                 }
@@ -192,7 +219,6 @@ public:
         }
         return loss;
     }
-
 };
 
 

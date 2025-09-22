@@ -168,7 +168,19 @@ struct CpuEigenPolicy {
     }
 
     static DenseOutput calculateNextDelta(const WeightMatrix& currentWeights, const DenseOutput& delta, const DenseOutput& prevActivationDerivative) {
-        return (currentWeights.transpose() * delta).cwiseProduct(prevActivationDerivative);
+        // --- Финальный лог для диагностики ---
+        Log::Logger().debug(
+            "calculateNextDelta: Weights[sum:{}, min:{}, max:{}], Delta[sum:{}]",
+            currentWeights.sum(),
+            currentWeights.minCoeff(),
+            currentWeights.maxCoeff(),
+            delta.sum()
+        );
+        auto nextDelta = (currentWeights.transpose() * delta).cwiseProduct(prevActivationDerivative);
+        Log::Logger().debug("calculateNextDelta: Resulting nextDelta sum = {}", nextDelta.sum());
+        // --- Конец лога ---
+
+        return nextDelta;
     }
 
     // ===================================================================================
@@ -179,20 +191,55 @@ struct CpuEigenPolicy {
      * @brief Прямое распространение: операция свертки.
      */
     static Tensor4f convolution(const Tensor4f& input, const KernelTensor& kernels, const BiasVector& biases, u32 stride, PaddingMode paddingMode) {
-        ConvolutionMode mode = (paddingMode == PaddingMode::SAME) ? ConvolutionMode::SAME : ConvolutionMode::VALID;
-        Tensor4f output = _convolution(input, kernels, stride, mode);
+        const Eigen::DenseIndex batchSize = input.dimension(0);
+        const Eigen::DenseIndex inChannels = input.dimension(1);
+        const Eigen::DenseIndex inHeight = input.dimension(2);
+        const Eigen::DenseIndex inWidth = input.dimension(3);
 
-        const Eigen::DenseIndex batchSize = output.dimension(0);
-        const Eigen::DenseIndex outChannels = output.dimension(1);
-        const Eigen::DenseIndex outHeight = output.dimension(2);
-        const Eigen::DenseIndex outWidth = output.dimension(3);
+        const Eigen::DenseIndex outChannels = kernels.dimension(0);
+        const Eigen::DenseIndex kernelHeight = kernels.dimension(2);
+        const Eigen::DenseIndex kernelWidth = kernels.dimension(3);
 
-        Tensor4f biasTensor(1, outChannels, 1, 1);
-        for(Eigen::DenseIndex i = 0; i < outChannels; ++i) {
-            biasTensor(0, i, 0, 0) = biases(i);
+        // TODO: Реализовать паддинг для режима SAME
+        if (paddingMode == PaddingMode::SAME) {
+            throw std::runtime_error("PaddingMode::SAME is not implemented for loop-based convolution yet.");
         }
-        Eigen::array<Eigen::DenseIndex, 4> bcast = {batchSize, 1, outHeight, outWidth};
-        return output + biasTensor.broadcast(bcast);
+
+        const Eigen::DenseIndex outHeight = (inHeight - kernelHeight) / stride + 1;
+        const Eigen::DenseIndex outWidth = (inWidth - kernelWidth) / stride + 1;
+
+        Tensor4f output(batchSize, outChannels, outHeight, outWidth);
+        output.setZero();
+
+        // N (batch)
+        for (Eigen::DenseIndex n = 0; n < batchSize; ++n) {
+            // OC (output channels / filters)
+            for (Eigen::DenseIndex oc = 0; oc < outChannels; ++oc) {
+                // H_out
+                for (Eigen::DenseIndex i = 0; i < outHeight; ++i) {
+                    // W_out
+                    for (Eigen::DenseIndex j = 0; j < outWidth; ++j) {
+
+                        f32 sum = 0.0f;
+                        // Вычисляем свертку для одного пикселя (i, j) на выходной карте признаков
+                        // IC (input channels)
+                        for (Eigen::DenseIndex ic = 0; ic < inChannels; ++ic) {
+                            // kH (kernel height)
+                            for (Eigen::DenseIndex kh = 0; kh < kernelHeight; ++kh) {
+                                // kW (kernel width)
+                                for (Eigen::DenseIndex kw = 0; kw < kernelWidth; ++kw) {
+                                    const Eigen::DenseIndex h_in = i * stride + kh;
+                                    const Eigen::DenseIndex w_in = j * stride + kw;
+                                    sum += input(n, ic, h_in, w_in) * kernels(oc, ic, kh, kw);
+                                }
+                            }
+                        }
+                        output(n, oc, i, j) = sum + biases(oc);
+                    }
+                }
+            }
+        }
+        return output;
     }
 
     /**
@@ -201,34 +248,43 @@ struct CpuEigenPolicy {
      *          измерений, чтобы свести задачу к стандартной свертке Eigen.
      */
     static KernelTensor calculateKernelGradient(const Tensor4f& prevLayerOutput, const Tensor4f& delta, u32 stride, PaddingMode paddingMode) {
-        Tensor4f shuffledInput = prevLayerOutput.shuffle(std::array<int, 4>{1, 0, 2, 3});
-        Tensor4f shuffledDelta = delta.shuffle(std::array<int, 4>{1, 0, 2, 3});
+        const Eigen::DenseIndex batchSize = prevLayerOutput.dimension(0);
+        const Eigen::DenseIndex inChannels = prevLayerOutput.dimension(1);
+        const Eigen::DenseIndex inHeight = prevLayerOutput.dimension(2);
+        const Eigen::DenseIndex inWidth = prevLayerOutput.dimension(3);
 
-        // Градиент по весам - это свертка входа с дельтой.
-        // Режим паддинга здесь противоположен прямому проходу.
-        ConvolutionMode mode = (paddingMode == PaddingMode::SAME) ? ConvolutionMode::SAME : ConvolutionMode::VALID;
+        const Eigen::DenseIndex outChannels = delta.dimension(1);
+        const Eigen::DenseIndex outHeight = delta.dimension(2);
+        const Eigen::DenseIndex outWidth = delta.dimension(3);
 
-        // Для вычисления градиента мы используем дилатацию (dilation) входа, чтобы эмулировать stride
-        Tensor4f dilatedInput = shuffledInput;
-        if (stride > 1) {
-            const auto& ddims = shuffledInput.dimensions();
-            Eigen::DSizes<Eigen::DenseIndex, 4> upsampled_dims(
-                ddims[0], ddims[1],
-                (ddims[2] - 1) * stride + 1,
-                (ddims[3] - 1) * stride + 1
-            );
-            dilatedInput.resize(upsampled_dims);
-            dilatedInput.setZero();
-            Eigen::array<Eigen::DenseIndex, 4> offsets = {0, 0, 0, 0};
-            Eigen::array<Eigen::DenseIndex, 4> extents = {ddims[0], ddims[1], ddims[2], ddims[3]};
-            Eigen::array<Eigen::DenseIndex, 4> strides_arr = {1, 1, static_cast<Eigen::DenseIndex>(stride), static_cast<Eigen::DenseIndex>(stride)};
-            dilatedInput.stridedSlice(offsets, extents, strides_arr) = shuffledInput;
+        const Eigen::DenseIndex kernelHeight = inHeight - (outHeight - 1) * stride;
+        const Eigen::DenseIndex kernelWidth = inWidth - (outWidth - 1) * stride;
+
+        KernelTensor kernelGrad(outChannels, inChannels, kernelHeight, kernelWidth);
+        kernelGrad.setZero();
+
+        for (Eigen::DenseIndex n = 0; n < batchSize; ++n) {
+            for (Eigen::DenseIndex oc = 0; oc < outChannels; ++oc) {
+                for (Eigen::DenseIndex ic = 0; ic < inChannels; ++ic) {
+                    for (Eigen::DenseIndex kh = 0; kh < kernelHeight; ++kh) {
+                        for (Eigen::DenseIndex kw = 0; kw < kernelWidth; ++kw) {
+                            f32 sum = 0.0f;
+                            for (Eigen::DenseIndex i = 0; i < outHeight; ++i) {
+                                for (Eigen::DenseIndex j = 0; j < outWidth; ++j) {
+                                    const Eigen::DenseIndex h_in = i * stride + kh;
+                                    const Eigen::DenseIndex w_in = j * stride + kw;
+                                    sum += prevLayerOutput(n, ic, h_in, w_in) * delta(n, oc, i, j);
+                                }
+                            }
+                            kernelGrad(oc, ic, kh, kw) += sum;
+                        }
+                    }
+                }
+            }
         }
-
-        Tensor4f grad = _convolution(dilatedInput, shuffledDelta, 1, mode);
-
-        return grad.shuffle(std::array<int, 4>{1, 0, 2, 3});
+        return kernelGrad;
     }
+
     static BiasVector calculateBiasGradient(const Tensor4f& delta) {
         Eigen::array<Eigen::DenseIndex, 3> sum_dims = {0, 2, 3};
         Eigen::Tensor<f32, 1, Eigen::RowMajor> biasGradTensor = delta.sum(sum_dims);
@@ -236,32 +292,46 @@ struct CpuEigenPolicy {
     }
 
     /**
-     * @brief Обратное распространение: вычисление дельты для предыдущего слоя.
-     * @details delta_prev = full_conv(Delta_output, rot180(Kernel)). Это реализуется
-     *          как транспонированная свертка.
+     * @brief Обратное распространение: вычисление дельты для предыдущего слоя. (Надежная реализация на циклах - транспонированная свертка)
      */
     static Tensor4f calculateNextDeltaConv(const KernelTensor& kernels, const Tensor4f& delta, const Tensor4f& prevActivationDerivative, u32 stride, PaddingMode paddingMode) {
-        auto rotatedKernels = kernels.reverse(std::array<bool, 4>{false, false, true, true});
-        auto shuffledKernels = rotatedKernels.shuffle(std::array<int, 4>{1, 0, 2, 3});
+        const Eigen::DenseIndex batchSize = delta.dimension(0);
+        const Eigen::DenseIndex inChannels = kernels.dimension(1);
+        const Eigen::DenseIndex outChannels = kernels.dimension(0);
+        const Eigen::DenseIndex kernelHeight = kernels.dimension(2);
+        const Eigen::DenseIndex kernelWidth = kernels.dimension(3);
 
-        Tensor4f nextDeltaZ = _convolution(delta, shuffledKernels, 1, ConvolutionMode::FULL);
+        const Eigen::DenseIndex outHeight = delta.dimension(2);
+        const Eigen::DenseIndex outWidth = delta.dimension(3);
 
-        if (stride > 1) {
-            const auto& shape = nextDeltaZ.dimensions();
-            Eigen::array<Eigen::DenseIndex, 4> start_indices = {0, 0, 0, 0};
-            Eigen::array<Eigen::DenseIndex, 4> stop_indices = {shape[0], shape[1], shape[2], shape[3]};
-            Eigen::array<Eigen::DenseIndex, 4> strides_arr = {1, 1, static_cast<Eigen::DenseIndex>(stride), static_cast<Eigen::DenseIndex>(stride)};
-            nextDeltaZ = nextDeltaZ.stridedSlice(start_indices, stop_indices, strides_arr);
+        const Eigen::DenseIndex inHeight = prevActivationDerivative.dimension(2);
+        const Eigen::DenseIndex inWidth = prevActivationDerivative.dimension(3);
+
+        Tensor4f nextDeltaZ(batchSize, inChannels, inHeight, inWidth);
+        nextDeltaZ.setZero();
+
+        for (Eigen::DenseIndex n = 0; n < batchSize; ++n) {
+            for (Eigen::DenseIndex ic = 0; ic < inChannels; ++ic) {
+                for (Eigen::DenseIndex i = 0; i < outHeight; ++i) {
+                    for (Eigen::DenseIndex j = 0; j < outWidth; ++j) {
+                        for (Eigen::DenseIndex oc = 0; oc < outChannels; ++oc) {
+                            for (Eigen::DenseIndex kh = 0; kh < kernelHeight; ++kh) {
+                                for (Eigen::DenseIndex kw = 0; kw < kernelWidth; ++kw) {
+                                    const Eigen::DenseIndex h_in = i * stride + kh;
+                                    const Eigen::DenseIndex w_in = j * stride + kw;
+                                    if (h_in < inHeight && w_in < inWidth) {
+                                        nextDeltaZ(n, ic, h_in, w_in) += delta(n, oc, i, j) * kernels(oc, ic, kh, kw);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
-
-        const auto& prevShape = prevActivationDerivative.dimensions();
-        Eigen::array<Eigen::DenseIndex, 4> start_indices = {0, 0, 0, 0};
-        Eigen::array<Eigen::DenseIndex, 4> slice_sizes = {prevShape[0], prevShape[1], prevShape[2], prevShape[3]};
-        nextDeltaZ = nextDeltaZ.slice(start_indices, slice_sizes);
 
         return nextDeltaZ * prevActivationDerivative;
     }
-
 
     /**
      * @brief Обновление весов (ядер) для сверточного слоя.
@@ -282,6 +352,12 @@ struct CpuEigenPolicy {
     template<typename CP>
     static std::pair<Tensor4f, typename PoolingLayer<CP>::MaxIndicesTensor>
     maxPooling(const Tensor4f& input, u32 poolSize, u32 stride)  {
+        // --- ЛОГ ДЛЯ ПРЯМОГО ПРОХОДА ПУЛИНГА ---
+        Eigen::Tensor<f32, 0, Eigen::RowMajor> inputSum = input.sum();
+        Log::Logger().debug("MaxPool IN: input_dims={}, input_sum={}, pool_size={}, stride={}",
+                            getTensorDims(input), static_cast<f32>(inputSum()), poolSize, stride);
+        // --- КОНЕЦ ЛОГА ---
+
         const Eigen::DenseIndex batchSize = input.dimension(0);
         const Eigen::DenseIndex channels = input.dimension(1);
         const Eigen::DenseIndex inHeight = input.dimension(2);
@@ -291,45 +367,66 @@ struct CpuEigenPolicy {
         const Eigen::DenseIndex outWidth = (inWidth - poolSize) / stride + 1;
 
         Tensor4f output(batchSize, channels, outHeight, outWidth);
-        Eigen::Tensor<Eigen::DenseIndex, 4, Eigen::RowMajor> indices(batchSize, channels, outHeight, outWidth);
+        typename PoolingLayer<CP>::MaxIndicesTensor indices(batchSize, channels, outHeight, outWidth);
 
-        // TODO: Эту операцию можно значительно оптимизировать с помощью Eigen::patch и reductions,
-        // но для наглядности приведена простая реализация.
         for (Eigen::DenseIndex n = 0; n < batchSize; ++n) {
             for (Eigen::DenseIndex c = 0; c < channels; ++c) {
                 for (Eigen::DenseIndex i = 0; i < outHeight; ++i) {
                     for (Eigen::DenseIndex j = 0; j < outWidth; ++j) {
-                        Eigen::DenseIndex h_start = i * stride;
-                        Eigen::DenseIndex w_start = j * stride;
+                        const Eigen::DenseIndex hStart = i * stride;
+                        const Eigen::DenseIndex wStart = j * stride;
 
-                        // Вырезаем "окно" из входного тензора
-                        auto window = input.chip(n, 0).chip(c, 0)
-                                          .slice(std::array<Eigen::DenseIndex, 2>{h_start, w_start},
-                                                 std::array<Eigen::DenseIndex, 2>{poolSize, poolSize});
+                        // Извлекаем окно/патч
+                        auto window = input.slice(
+                            std::array<Eigen::DenseIndex, 4>{n, c, hStart, wStart},
+                            std::array<Eigen::DenseIndex, 4>{1, 1, static_cast<i64>(poolSize), static_cast<i64>(poolSize)}
+                        );
 
+                        // Находим максимум и его индекс внутри этого окна
                         Eigen::Tensor<f32, 0, Eigen::RowMajor> maxValTensor = window.maximum();
                         output(n, c, i, j) = maxValTensor();
 
                         Eigen::Tensor<Eigen::DenseIndex, 0, Eigen::RowMajor> maxIndexTensor = window.argmax();
-                        const Eigen::DenseIndex maxIndex_local = maxIndexTensor();
+                        const Eigen::DenseIndex flatIndexInWindow = maxIndexTensor();
 
-                        // Сохраняем глобальный индекс в исходном тензоре
-                        Eigen::DenseIndex row = maxIndex_local / poolSize;
-                        Eigen::DenseIndex col = maxIndex_local % poolSize;
-                        indices(n, c, i, j) = (h_start + row) * inWidth + (w_start + col);
-                        indices(n, c, i, j) = (h_start + row) * inWidth + (w_start + col);
+                        // Преобразуем "плоский" индекс в окне в 2D-координаты в окне
+                        const Eigen::DenseIndex rowInWindow = flatIndexInWindow / poolSize;
+                        const Eigen::DenseIndex colInWindow = flatIndexInWindow % poolSize;
+
+                        // Преобразуем координаты в окне в глобальные координаты в исходном тензоре
+                        const Eigen::DenseIndex globalRow = hStart + rowInWindow;
+                        const Eigen::DenseIndex globalCol = wStart + colInWindow;
+
+                        // Сохраняем "сплющенный" глобальный индекс (относительно 2D-среза HxW)
+                        indices(n, c, i, j) = globalRow * inWidth + globalCol;
                     }
                 }
             }
         }
+
+        // --- ЛОГ ДЛЯ ВЫХОДА ПРЯМОГО ПРОХОДА ПУЛИНГА ---
+        Eigen::Tensor<f32, 0, Eigen::RowMajor> outputSum = output.sum();
+        Eigen::Tensor<Eigen::DenseIndex, 0, Eigen::RowMajor> indicesSum = indices.sum();
+        Log::Logger().debug("MaxPool OUT: output_dims={}, output_sum={}, indices_sum={}",
+                            getTensorDims(output), static_cast<f32>(outputSum()), static_cast<Eigen::DenseIndex>(indicesSum()));
+        // --- КОНЕЦ ЛОГА ---
+
         return std::make_pair(output, indices);
     }
 
     /**
-     * @brief Обратное распространение для Max Pooling.
+     * @brief Обратное распространение для Max Pooling. (Надежная реализация на циклах)
      */
-    static Tensor4f maxPoolingBackward(const Tensor4f& delta, const Eigen::Tensor<Eigen::DenseIndex, 4, Eigen::RowMajor>& maxIndices, const std::array<Eigen::DenseIndex, 4>& prevShape) {
-        Tensor4f prevDelta(prevShape);
+    static Tensor4f maxPoolingBackward(const Tensor4f& delta, const typename PoolingLayer<CpuEigenPolicy>::MaxIndicesTensor& maxIndices, const std::array<Eigen::DenseIndex, 4>& prevShape) {
+        // --- ЛОГ ДЛЯ ОБРАТНОГО ПРОХОДА ПУЛИНГА ---
+        Eigen::Tensor<f32, 0, Eigen::RowMajor> deltaSum = delta.sum();
+        Eigen::Tensor<Eigen::DenseIndex, 0, Eigen::RowMajor> indicesSum = maxIndices.sum();
+        Log::Logger().debug("MaxPoolBack IN: delta_dims={}, delta_sum={}, indices_sum={}, prev_shape=[{},{},{},{}]",
+                            getTensorDims(delta), static_cast<f32>(deltaSum()), static_cast<Eigen::DenseIndex>(indicesSum()),
+                            prevShape[0], prevShape[1], prevShape[2], prevShape[3]);
+        // --- КОНЕЦ ЛОГА ---
+
+        Tensor4f prevDelta(prevShape[0], prevShape[1], prevShape[2], prevShape[3]);
         prevDelta.setZero();
 
         const Eigen::DenseIndex batchSize = delta.dimension(0);
@@ -342,16 +439,31 @@ struct CpuEigenPolicy {
             for (Eigen::DenseIndex c = 0; c < channels; ++c) {
                 for (Eigen::DenseIndex i = 0; i < outHeight; ++i) {
                     for (Eigen::DenseIndex j = 0; j < outWidth; ++j) {
-                        Eigen::DenseIndex globalIndex = maxIndices(n, c, i, j);
-                        Eigen::DenseIndex h = globalIndex / inWidth;
-                        Eigen::DenseIndex w = globalIndex % inWidth;
-                        prevDelta(n, c, h, w) += delta(n, c, i, j);
+                        // Получаем "сплющенный" глобальный индекс, который мы сохранили
+                        Eigen::DenseIndex flatGlobalIndex = maxIndices(n, c, i, j);
+
+                        // Преобразуем его обратно в 2D-координаты
+                        Eigen::DenseIndex globalRow = flatGlobalIndex / inWidth;
+                        Eigen::DenseIndex globalCol = flatGlobalIndex % inWidth;
+
+                        // Передаем градиент в ту ячейку, откуда пришел максимум
+                        if (globalRow < prevShape[2] && globalCol < prevShape[3]) {
+                            prevDelta(n, c, globalRow, globalCol) += delta(n, c, i, j);
+                        }
                     }
                 }
             }
         }
+
+        // --- ЛОГ ДЛЯ ВЫХОДА ОБРАТНОГО ПРОХОДА ПУЛИНГА ---
+        Eigen::Tensor<f32, 0, Eigen::RowMajor> prevDeltaSum = prevDelta.sum();
+        Log::Logger().debug("MaxPoolBack OUT: prev_delta_dims={}, prev_delta_sum={}",
+                            getTensorDims(prevDelta), static_cast<f32>(prevDeltaSum()));
+        // --- КОНЕЦ ЛОГА ---
+
         return prevDelta;
     }
+
 
 
     // ===================================================================================
@@ -362,10 +474,45 @@ struct CpuEigenPolicy {
      * @brief Преобразует 4D тензор в 2D матрицу.
      */
     static DenseOutput flatten(const Tensor4f& input) {
+        // --- ЛОГ ДЛЯ ДИАГНОСТИКИ FLATTEN ---
+        Eigen::Tensor<f32, 0, Eigen::RowMajor> inputSumTensor = input.sum();
+        Log::Logger().debug("Flatten IN: Tensor sum = {}", static_cast<f32>(inputSumTensor()));
+
+        // --- НОВЫЙ ЛОГ: ВЫВОД СОДЕРЖИМОГО ТЕНЗОРА ---
+        if (input.dimension(0) < 5) { // Выводим только для небольших батчей
+            std::stringstream ssTensor;
+            for (Eigen::DenseIndex n = 0; n < input.dimension(0); ++n) {
+                ssTensor << "Sample [" << n << "]:\n";
+                for (Eigen::DenseIndex c = 0; c < input.dimension(1); ++c) {
+                    ssTensor << "  Channel [" << c << "]:\n";
+                    ssTensor << input.chip(n, 0).chip(c, 0) << "\n";
+                }
+            }
+            Log::Logger().debug("Flatten IN Tensor content:\n{}", ssTensor.str());
+        }
+        // --- КОНЕЦ НОВОГО ЛОГА ---
+
         const Eigen::DenseIndex batchSize = input.dimension(0);
         const Eigen::DenseIndex features = input.dimension(1) * input.dimension(2) * input.dimension(3);
-        // Важно: транспонируем, чтобы получить формат (features, batch_size)
-        return Eigen::Map<const Eigen::MatrixXf>(input.data(), features, batchSize);
+
+        DenseOutput result = Eigen::Map<const Eigen::MatrixXf>(input.data(), features, batchSize);
+
+        Log::Logger().debug(
+            "Flatten OUT: Matrix dims=[{}, {}], sum={}, min={}, max={}",
+            result.rows(),
+            result.cols(),
+            result.sum(),
+            result.minCoeff(),
+            result.maxCoeff()
+        );
+        if (result.cols() < 5) {
+            std::stringstream ssMatrix;
+            ssMatrix << result;
+            Log::Logger().debug("Flatten OUT Matrix content:\n{}", ssMatrix.str());
+        }
+        // --- КОНЕЦ ЛОГА FLATTEN ---
+
+        return result;
     }
 
     /**

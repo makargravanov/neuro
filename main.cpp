@@ -132,7 +132,7 @@ void runLineDetectorCNN() {
                // Полносвязный слой Softmax для классификации. Выход: 2
                {LayerType::DENSE_SOFTMAX, DenseLayerConfig{2}}
            })
-           .train(100, 0.05f, 10)
+           .train(100, 0.000001f, 1)
            .evaluate();
 
         // 3. Тестовое предсказание

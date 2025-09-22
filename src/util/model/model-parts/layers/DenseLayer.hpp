@@ -16,8 +16,9 @@ public:
     DenseLayer() = default;
 
     explicit DenseLayer(u32 numberOfNeurons, u32 lastNumberOfNeurons) {
-        _weights = WeightMatrix::Random(numberOfNeurons, lastNumberOfNeurons);
-        _biases = BiasVector::Random(numberOfNeurons);
+        f32 stddev = std::sqrt(2.0f / static_cast<f32>(lastNumberOfNeurons));
+        _weights = WeightMatrix::Random(numberOfNeurons, lastNumberOfNeurons) * stddev;
+        _biases = BiasVector::Zero(numberOfNeurons);
     };
 
     /**

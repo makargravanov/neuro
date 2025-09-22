@@ -100,7 +100,7 @@ public:
             const auto& actualDenseOutput = std::get<DenseOutput>(actualOutputVariant);
             auto actual = actualDenseOutput.sum();
 
-            Log::Logger().debug("Network output sum before loss: {}", actual);
+            //Log::Logger().debug("Network output sum before loss: {}", actual);
             return policy.calculate(actualDenseOutput, expectedBatch);
         }, lossFunction);
         // --- Обратное распространение ---
@@ -141,6 +141,18 @@ public:
             auto& currentLayerVariant = _layers[j];
             const InputType& prevLayerOutputVariant = (j > 0) ? _lastLayerOutputs[j - 1] : inputBatch;
 
+            std::visit([j](const auto& d) {
+                using T = std::decay_t<decltype(d)>;
+                f32 sum = 0.0f;
+                if constexpr (std::is_same_v<T, DenseOutput>) {
+                    sum = d.sum();
+                } else if constexpr (std::is_same_v<T, Tensor4f>) {
+                    Eigen::Tensor<f32, 0, Eigen::RowMajor> dSumTensor = d.sum();
+                    sum = dSumTensor();
+                }
+                Log::Logger().debug("Backprop layer [{}]: IN delta sum = {}", j, sum);
+            }, delta);
+
             delta = std::visit([&](auto& layer) -> OutputType {
                 using LayerT = std::decay_t<decltype(layer)>;
 
@@ -159,11 +171,18 @@ public:
                     ComputePolicy::updateBiases(layer.getBiases(), learningRate, biasGrad);
 
                     if (j > 0) {
-                        OutputType prevActivationDerivativeVariant = std::visit(
-                            [](auto& prevLayer) -> OutputType { return prevLayer.activationDerivative(); },
-                            _layers[j - 1]);
-                        const auto& prevAD = std::get<DenseOutput>(prevActivationDerivativeVariant);
-                        return ComputePolicy::calculateNextDelta(layer.getWeights(), d, prevAD);
+                        // Проверяем, что предыдущий слой совместим
+                        return std::visit([&](auto& prevLayer) -> OutputType {
+                            if constexpr (requires { prevLayer.activationDerivative(); }) {
+                                OutputType prevActivationDerivativeVariant = prevLayer.activationDerivative();
+                                const auto& prevAD = std::get<DenseOutput>(prevActivationDerivativeVariant);
+                                return ComputePolicy::calculateNextDelta(layer.getWeights(), d, prevAD);
+                            } else {
+                                // Если у предыдущего слоя нет activationDerivative (например, Flatten),
+                                // возвращаем дельту без умножения на производную.
+                                return layer.getWeights().transpose() * d;
+                            }
+                        }, _layers[j-1]);
                     }
                 } else if constexpr (
                     std::is_same_v<LayerT, ConvLayer<ReLUPolicy, ComputePolicy> > ||
@@ -174,8 +193,7 @@ public:
                     const auto& config = layer.getConfig();
 
                     Eigen::Tensor<f32, 0, Eigen::RowMajor> dSumTensor = d.sum();
-                    Log::Logger().debug("Delta sum entering Conv backprop [layer {}]: {}", j,
-                                        static_cast<f32>(dSumTensor()));
+                    //Log::Logger().debug("Delta sum entering Conv backprop [layer {}]: {}", j, static_cast<f32>(dSumTensor()));
 
                     KernelTensor kernelGrad = ComputePolicy::calculateKernelGradient(
                         prevOut, d, config.stride, config.paddingMode);
@@ -184,8 +202,7 @@ public:
                     ComputePolicy::updateBiases(layer.getBiases(), learningRate, biasGrad);
 
                     Eigen::Tensor<f32, 0, Eigen::RowMajor> kernelGradSumTensor = kernelGrad.sum();
-                    Log::Logger().debug("Kernel gradient sum after calculation: {}",
-                                        static_cast<f32>(kernelGradSumTensor()));
+                    //Log::Logger().debug("Kernel gradient sum after calculation: {}", static_cast<f32>(kernelGradSumTensor()));
 
 
                     if (j > 0) {
@@ -199,8 +216,7 @@ public:
 
                         // --- ЛОГ #3.3 ---
                         Eigen::Tensor<f32, 0, Eigen::RowMajor> nextDeltaSumTensor = nextDeltaVal.sum();
-                        Log::Logger().debug("Next delta sum leaving Conv backprop: {}",
-                                            static_cast<f32>(nextDeltaSumTensor()));
+                        //Log::Logger().debug("Next delta sum leaving Conv backprop: {}", static_cast<f32>(nextDeltaSumTensor()));
 
                         return ComputePolicy::calculateNextDeltaConv(layer.getKernels(), d, prevAD, config.stride,
                                                                      config.paddingMode);
@@ -216,6 +232,20 @@ public:
 
                 return delta;
             }, currentLayerVariant);
+
+            if (j > 0) {
+                std::visit([j](const auto& d) {
+                    using T = std::decay_t<decltype(d)>;
+                    f32 sum = 0.0f;
+                    if constexpr (std::is_same_v<T, DenseOutput>) {
+                        sum = d.sum();
+                    } else if constexpr (std::is_same_v<T, Tensor4f>) {
+                        Eigen::Tensor<f32, 0, Eigen::RowMajor> dSumTensor = d.sum();
+                        sum = dSumTensor();
+                    }
+                    Log::Logger().debug("Backprop layer [{}]: OUT delta sum = {}", j, sum);
+                }, delta);
+            }
         }
         return loss;
     }

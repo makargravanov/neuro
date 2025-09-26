@@ -88,11 +88,9 @@ void runRideStatusPrediction() {
     }
 }
 
-// --- Новый пример для сверточной сети ---
 void runLineDetectorCNN() {
     Log::Logger().message("--- Starting Line Detector Example (Convolutional Network) ---");
     try {
-        // 1. Генерация "игрушечного" датасета
         std::vector<Eigen::VectorXf> inputs;
         std::vector<Eigen::VectorXf> outputs;
         const int imgSize = 5;
@@ -102,43 +100,37 @@ void runLineDetectorCNN() {
             Eigen::MatrixXf img = Eigen::MatrixXf::Zero(imgSize, imgSize);
             Eigen::VectorXf label(2);
 
-            // Создаем либо вертикальную, либо горизонтальную линию
-            if (i % 2 == 0) { // Вертикальная
+            if (i % 2 == 0) {
                 img.col(2).setOnes();
                 label << 1.0f, 0.0f;
-            } else { // Горизонтальная
+            } else {
                 img.row(2).setOnes();
                 label << 0.0f, 1.0f;
             }
-            // Добавляем немного шума
             img += Eigen::MatrixXf::Random(imgSize, imgSize) * 0.1f;
 
-            // "Выравниваем" матрицу в вектор для подачи в модель
             inputs.emplace_back(Eigen::Map<Eigen::VectorXf>(img.data(), img.size()));
             outputs.emplace_back(label);
         }
 
-        // 2. Создание и обучение модели
         Model<CpuEigenPolicy> cnn;
         cnn.fromVectors(inputs, outputs)
            .withInputShape(1, imgSize, imgSize) // 1 канал (Ч/Б), 5x5
            .withArchitecture({
-               // Сверточный слой: 4 фильтра 3x3, ReLU. Выход: 4x3x3
+               // 4 фильтра 3x3, ReLU. Выход: 4x3x3
                {LayerType::CONV2D_RELU, ConvLayerConfig{4, 3, 1, PaddingMode::VALID}},
                // Max Pooling: окно 2x2. Выход: 4x1x1
                {LayerType::MAX_POOL2D, PoolLayerConfig{2, 1}},
-               // Выравнивание. Выход: вектор размером 4*1*1 = 4
+               // вектор размером 4*1*1 = 4
                {LayerType::FLATTEN, {}},
-               // Полносвязный слой Softmax для классификации. Выход: 2
                {LayerType::DENSE_SOFTMAX, DenseLayerConfig{2}}
            })
-           .train(100, 0.000001f, 1)
+           .train(400, 0.001f, 10)
            .evaluate();
 
-        // 3. Тестовое предсказание
         Log::Logger().info("--- CNN Prediction Example ---");
         Eigen::MatrixXf testImg = Eigen::MatrixXf::Zero(imgSize, imgSize);
-        testImg.col(2).setOnes(); // Вертикальная линия
+        testImg.col(2).setOnes();
         Eigen::VectorXf testVec = Eigen::Map<Eigen::VectorXf>(testImg.data(), testImg.size());
 
         Eigen::VectorXf prediction = cnn.predict(testVec);
@@ -153,7 +145,7 @@ void runLineDetectorCNN() {
 }
 
 
-i32 main() {
+int main() {
     Log::Platform::enableColors();
     Eigen::setNbThreads(std::thread::hardware_concurrency());
     Log::Logger().info("Eigen is configured to use up to {} threads.", Eigen::nbThreads());

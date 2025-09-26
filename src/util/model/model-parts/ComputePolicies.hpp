@@ -168,18 +168,7 @@ struct CpuEigenPolicy {
     }
 
     static DenseOutput calculateNextDelta(const WeightMatrix& currentWeights, const DenseOutput& delta, const DenseOutput& prevActivationDerivative) {
-        // --- Финальный лог для диагностики ---
-        Log::Logger().debug(
-            "calculateNextDelta: Weights[sum:{}, min:{}, max:{}], Delta[sum:{}]",
-            currentWeights.sum(),
-            currentWeights.minCoeff(),
-            currentWeights.maxCoeff(),
-            delta.sum()
-        );
         auto nextDelta = (currentWeights.transpose() * delta).cwiseProduct(prevActivationDerivative);
-        Log::Logger().debug("calculateNextDelta: Resulting nextDelta sum = {}", nextDelta.sum());
-        // --- Конец лога ---
-
         return nextDelta;
     }
 
@@ -352,11 +341,6 @@ struct CpuEigenPolicy {
     template<typename CP>
     static std::pair<Tensor4f, typename PoolingLayer<CP>::MaxIndicesTensor>
     maxPooling(const Tensor4f& input, u32 poolSize, u32 stride)  {
-        // --- ЛОГ ДЛЯ ПРЯМОГО ПРОХОДА ПУЛИНГА ---
-        Eigen::Tensor<f32, 0, Eigen::RowMajor> inputSum = input.sum();
-        Log::Logger().debug("MaxPool IN: input_dims={}, input_sum={}, pool_size={}, stride={}",
-                            getTensorDims(input), static_cast<f32>(inputSum()), poolSize, stride);
-        // --- КОНЕЦ ЛОГА ---
 
         const Eigen::DenseIndex batchSize = input.dimension(0);
         const Eigen::DenseIndex channels = input.dimension(1);
@@ -404,13 +388,6 @@ struct CpuEigenPolicy {
             }
         }
 
-        // --- ЛОГ ДЛЯ ВЫХОДА ПРЯМОГО ПРОХОДА ПУЛИНГА ---
-        Eigen::Tensor<f32, 0, Eigen::RowMajor> outputSum = output.sum();
-        Eigen::Tensor<Eigen::DenseIndex, 0, Eigen::RowMajor> indicesSum = indices.sum();
-        Log::Logger().debug("MaxPool OUT: output_dims={}, output_sum={}, indices_sum={}",
-                            getTensorDims(output), static_cast<f32>(outputSum()), static_cast<Eigen::DenseIndex>(indicesSum()));
-        // --- КОНЕЦ ЛОГА ---
-
         return std::make_pair(output, indices);
     }
 
@@ -418,13 +395,6 @@ struct CpuEigenPolicy {
      * @brief Обратное распространение для Max Pooling. (Надежная реализация на циклах)
      */
     static Tensor4f maxPoolingBackward(const Tensor4f& delta, const typename PoolingLayer<CpuEigenPolicy>::MaxIndicesTensor& maxIndices, const std::array<Eigen::DenseIndex, 4>& prevShape) {
-        // --- ЛОГ ДЛЯ ОБРАТНОГО ПРОХОДА ПУЛИНГА ---
-        Eigen::Tensor<f32, 0, Eigen::RowMajor> deltaSum = delta.sum();
-        Eigen::Tensor<Eigen::DenseIndex, 0, Eigen::RowMajor> indicesSum = maxIndices.sum();
-        Log::Logger().debug("MaxPoolBack IN: delta_dims={}, delta_sum={}, indices_sum={}, prev_shape=[{},{},{},{}]",
-                            getTensorDims(delta), static_cast<f32>(deltaSum()), static_cast<Eigen::DenseIndex>(indicesSum()),
-                            prevShape[0], prevShape[1], prevShape[2], prevShape[3]);
-        // --- КОНЕЦ ЛОГА ---
 
         Tensor4f prevDelta(prevShape[0], prevShape[1], prevShape[2], prevShape[3]);
         prevDelta.setZero();
@@ -454,13 +424,6 @@ struct CpuEigenPolicy {
                 }
             }
         }
-
-        // --- ЛОГ ДЛЯ ВЫХОДА ОБРАТНОГО ПРОХОДА ПУЛИНГА ---
-        Eigen::Tensor<f32, 0, Eigen::RowMajor> prevDeltaSum = prevDelta.sum();
-        Log::Logger().debug("MaxPoolBack OUT: prev_delta_dims={}, prev_delta_sum={}",
-                            getTensorDims(prevDelta), static_cast<f32>(prevDeltaSum()));
-        // --- КОНЕЦ ЛОГА ---
-
         return prevDelta;
     }
 
@@ -474,44 +437,10 @@ struct CpuEigenPolicy {
      * @brief Преобразует 4D тензор в 2D матрицу.
      */
     static DenseOutput flatten(const Tensor4f& input) {
-        // --- ЛОГ ДЛЯ ДИАГНОСТИКИ FLATTEN ---
-        Eigen::Tensor<f32, 0, Eigen::RowMajor> inputSumTensor = input.sum();
-        Log::Logger().debug("Flatten IN: Tensor sum = {}", static_cast<f32>(inputSumTensor()));
-
-        // --- НОВЫЙ ЛОГ: ВЫВОД СОДЕРЖИМОГО ТЕНЗОРА ---
-        if (input.dimension(0) < 5) { // Выводим только для небольших батчей
-            std::stringstream ssTensor;
-            for (Eigen::DenseIndex n = 0; n < input.dimension(0); ++n) {
-                ssTensor << "Sample [" << n << "]:\n";
-                for (Eigen::DenseIndex c = 0; c < input.dimension(1); ++c) {
-                    ssTensor << "  Channel [" << c << "]:\n";
-                    ssTensor << input.chip(n, 0).chip(c, 0) << "\n";
-                }
-            }
-            Log::Logger().debug("Flatten IN Tensor content:\n{}", ssTensor.str());
-        }
-        // --- КОНЕЦ НОВОГО ЛОГА ---
-
         const Eigen::DenseIndex batchSize = input.dimension(0);
         const Eigen::DenseIndex features = input.dimension(1) * input.dimension(2) * input.dimension(3);
 
         DenseOutput result = Eigen::Map<const Eigen::MatrixXf>(input.data(), features, batchSize);
-
-        Log::Logger().debug(
-            "Flatten OUT: Matrix dims=[{}, {}], sum={}, min={}, max={}",
-            result.rows(),
-            result.cols(),
-            result.sum(),
-            result.minCoeff(),
-            result.maxCoeff()
-        );
-        if (result.cols() < 5) {
-            std::stringstream ssMatrix;
-            ssMatrix << result;
-            Log::Logger().debug("Flatten OUT Matrix content:\n{}", ssMatrix.str());
-        }
-        // --- КОНЕЦ ЛОГА FLATTEN ---
-
         return result;
     }
 

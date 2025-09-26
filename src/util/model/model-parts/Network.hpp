@@ -98,9 +98,6 @@ public:
         f32 loss = std::visit([&](const auto& policy) {
             // Мы предполагаем, что ошибка считается только для полносвязных выходов
             const auto& actualDenseOutput = std::get<DenseOutput>(actualOutputVariant);
-            auto actual = actualDenseOutput.sum();
-
-            //Log::Logger().debug("Network output sum before loss: {}", actual);
             return policy.calculate(actualDenseOutput, expectedBatch);
         }, lossFunction);
         // --- Обратное распространение ---
@@ -150,7 +147,6 @@ public:
                     Eigen::Tensor<f32, 0, Eigen::RowMajor> dSumTensor = d.sum();
                     sum = dSumTensor();
                 }
-                Log::Logger().debug("Backprop layer [{}]: IN delta sum = {}", j, sum);
             }, delta);
 
             delta = std::visit([&](auto& layer) -> OutputType {
@@ -192,17 +188,12 @@ public:
                     const auto& prevOut = std::get<Tensor4f>(prevLayerOutputVariant);
                     const auto& config = layer.getConfig();
 
-                    Eigen::Tensor<f32, 0, Eigen::RowMajor> dSumTensor = d.sum();
-                    //Log::Logger().debug("Delta sum entering Conv backprop [layer {}]: {}", j, static_cast<f32>(dSumTensor()));
 
                     KernelTensor kernelGrad = ComputePolicy::calculateKernelGradient(
                         prevOut, d, config.stride, config.paddingMode);
                     BiasVector biasGrad = ComputePolicy::calculateBiasGradient(d);
                     ComputePolicy::updateWeights(layer.getKernels(), learningRate, kernelGrad);
                     ComputePolicy::updateBiases(layer.getBiases(), learningRate, biasGrad);
-
-                    Eigen::Tensor<f32, 0, Eigen::RowMajor> kernelGradSumTensor = kernelGrad.sum();
-                    //Log::Logger().debug("Kernel gradient sum after calculation: {}", static_cast<f32>(kernelGradSumTensor()));
 
 
                     if (j > 0) {
@@ -243,7 +234,6 @@ public:
                         Eigen::Tensor<f32, 0, Eigen::RowMajor> dSumTensor = d.sum();
                         sum = dSumTensor();
                     }
-                    Log::Logger().debug("Backprop layer [{}]: OUT delta sum = {}", j, sum);
                 }, delta);
             }
         }

@@ -1,5 +1,6 @@
 
 
+#include "src/util/ImageDatasetLoader.hpp"
 #include "src/util/model/Model.hpp"
 #include "src/util/model/model-parts/Network.hpp"
 #include "src/util/logging.hpp"
@@ -93,8 +94,8 @@ void runLineDetectorCNN() {
     try {
         std::vector<Eigen::VectorXf> inputs;
         std::vector<Eigen::VectorXf> outputs;
-        const int imgSize = 5;
-        const int numSamples = 100;
+        constexpr int imgSize = 5;
+        constexpr int numSamples = 100;
 
         for (int i = 0; i < numSamples; ++i) {
             Eigen::MatrixXf img = Eigen::MatrixXf::Zero(imgSize, imgSize);
@@ -144,14 +145,55 @@ void runLineDetectorCNN() {
     }
 }
 
+void runImageClassifierCNN() {
+    Log::Logger().message("--- Starting Image Classifier Example (Resizing enabled) ---");
+    constexpr u32 targetSize = 64;
+    constexpr u32 channels = 3; // Форсируем RGB
+
+    // 1. Загрузка данных с ресайзом
+    Log::Logger().info("Loading and preprocessing dataset...");
+    auto datasetResult = ImageDatasetLoader::loadFromDirectory(
+        "datasets/PetImages-mini",
+        ImageLoaderConfig{ .targetWidth = targetSize, .targetHeight = targetSize, .forceChannels = channels }
+    );
+
+    if (!datasetResult) {
+        Log::Logger().error("Failed to load dataset: {}", datasetResult.error().message);
+        return;
+    }
+
+    ImgDataset dataset = std::move(datasetResult.value());
+    u32 numClasses = dataset.classNames.size();
+
+    try {
+        Model<CpuEigenPolicy> cnn;
+        cnn.fromVectors(std::move(dataset.inputs), std::move(dataset.outputs))
+           .withInputShape(channels, targetSize, targetSize) // NCHW формат
+           .withArchitecture({
+               // Вход: 3 x 64 x 64
+               {LayerType::CONV2D_RELU,  ConvLayerConfig{16, 3, 1, PaddingMode::VALID}}, // -> 16 x 62 x 62
+               {LayerType::MAX_POOL2D,   PoolLayerConfig{2, 2}},                        // -> 16 x 31 x 31
+               {LayerType::CONV2D_RELU,  ConvLayerConfig{32, 3, 1, PaddingMode::VALID}}, // -> 32 x 29 x 29
+               {LayerType::MAX_POOL2D,   PoolLayerConfig{2, 2}},                        // -> 32 x 14 x 14
+               {LayerType::FLATTEN,      {}},                                           // -> 6272
+               {LayerType::DENSE_RELU,   DenseLayerConfig{128}},
+               {LayerType::DENSE_SOFTMAX,DenseLayerConfig{numClasses}}
+           })
+           .train(15, 0.001f, 32)
+           .evaluate();
+
+    } catch (const std::exception& e) {
+        Log::Logger().error("An error occurred: {}", e.what());
+    }
+}
+
 
 int main() {
     Log::Platform::enableColors();
     Eigen::setNbThreads(std::thread::hardware_concurrency());
     Log::Logger().info("Eigen is configured to use up to {} threads.", Eigen::nbThreads());
 
-    //runRideStatusPrediction(); // Проверка старого функционала с новым API
-    runLineDetectorCNN();      // Проверка нового функционала CNN
+    runImageClassifierCNN();
 
     return 0;
 }

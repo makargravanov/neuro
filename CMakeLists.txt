@@ -41,7 +41,18 @@ FetchContent_Declare(
         GIT_PROGRESS   TRUE
 )
 
-FetchContent_MakeAvailable(boost eigen nlohmann-json)
+FetchContent_Declare(
+        stb
+        GIT_REPOSITORY https://github.com/nothings/stb.git
+        GIT_TAG        master
+        GIT_SHALLOW    TRUE
+        GIT_PROGRESS   TRUE
+)
+
+FetchContent_MakeAvailable(boost eigen nlohmann-json stb)
+
+add_library(stb_image INTERFACE)
+target_include_directories(stb_image INTERFACE ${stb_SOURCE_DIR})
 
 add_compile_options(-fmodules-ts)
 
@@ -80,6 +91,7 @@ target_link_libraries(main PRIVATE
         Eigen3::Eigen
         nlohmann_json
         OpenCL::OpenCL
+        stb_image
 )
 endif()
 
